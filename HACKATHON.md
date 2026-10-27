@@ -13,4 +13,8 @@
 - October 27, 2026 — Step 4: version resolution, containerized environment building, image caching, environment metadata and offline test command. Three-library live checks passed.
 - October 28, 2026 — Switched Step 4 to a commit-verified Git checkout and recorded reported v0.1 evidence; live verification passed on three libraries as reported by the project owner.
 
-- October 28, 2026 — Step 5 (in progress): structured issue parser, deterministic hints, fake-provider tests, and an unlabelled gold-set scoring template. Real gold-set evaluation remains pending.
+- October 28, 2026 — Step 5: structured issue parser and deterministic hints. The project owner reported 10/10 correct versions, 9/10 correct symptoms and 9/10 correct on both; vague-issue missing fields matched exactly on 1/3, with extra missing items on two cases.
+
+- October 28, 2026 — Step 6: the project owner reported a successful boltons 23.0.0 candidate and an independently failing test; conservative recorded cost was $0.03205825. Docker isolation checks passed on Windows.
+- October 28, 2026 — Step 7: deterministic symptom matcher passed 15 saved simulated-output cases, including a shortened trace based on the manual boltons repro.
+- October 28, 2026 — Step 8: the project owner reported that the saved test failed independently with the reported exception. Step 9 verification and confidence remain pending. The v0.2 checkpoint still needs the original run trace and release tag.

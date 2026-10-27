@@ -1,0 +1,10 @@
+Excerpt from the project owner's independent Docker pytest run:
+
+    def _insert(self, k, v):
+>       root = self.root
+               ^^^^^^^^^
+E       AttributeError: 'OrderedMultiDict' object has no attribute 'root'
+
+boltons/dictutils.py:198: AttributeError
+1 failed in 0.09s
+Pytest exit code: 1

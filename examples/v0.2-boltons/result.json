@@ -1,0 +1,20 @@
+{
+  "outcome": "candidate_found",
+  "repro_path": "/work/repro/test_repro.py",
+  "verdict": "exact",
+  "steps": 8,
+  "cost_usd": "0.03205825",
+  "duration": 22.64099999999962,
+  "stalled": false,
+  "reason": null,
+  "status": "not_reproduced",
+  "confidence": null,
+  "checks": {
+    "symptom_match": "exact",
+    "repeated_runs": null,
+    "fixed_version": null
+  },
+  "verification": "pending",
+  "status_detail": "Candidate awaits independent verification",
+  "test_file": "test_repro.py"
+}
