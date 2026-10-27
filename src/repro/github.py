@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import hashlib
 import os
 import re
 import tempfile
@@ -40,7 +41,7 @@ def _get_json(client, url: str, *, params=None):
     except Exception as exc:
         # Avoid logging request headers or token-bearing exception text.
         status = getattr(getattr(exc, 'response', None), 'status_code', None)
-        raise IssueFetchError(f'GitHub request failed (HTTP {status})' if status else 'GitHub request failed') from exc
+        raise IssueFetchError(f'GitHub request failed (HTTP {status})' if status else 'GitHub request failed') from None
 
 
 def fetch_issue(url: str, cache_dir: str | Path = '.cache/issues', *, token: str | None = None,
@@ -52,7 +53,8 @@ def fetch_issue(url: str, cache_dir: str | Path = '.cache/issues', *, token: str
     """
     owner, repo, number = parse_issue_url(url)
     cache_dir = Path(cache_dir)
-    cache_path = cache_dir / f'{owner.lower()}--{repo.lower()}--{number}.json'
+    cache_key = hashlib.sha256(f'{owner.lower()}/{repo.lower()}#{number}'.encode('utf-8')).hexdigest()
+    cache_path = cache_dir / f'{cache_key}.json'
     if not refresh and cache_path.is_file():
         try:
             cached = json.loads(cache_path.read_text(encoding='utf-8'))
@@ -131,3 +133,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
