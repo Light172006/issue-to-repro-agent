@@ -9,3 +9,6 @@ __pycache__/
 runs/
 build/
 dist/
+*.sqlite3
+*.sqlite3-journal
+trace.jsonl
