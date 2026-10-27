@@ -5,7 +5,7 @@ import json
 import os
 import uuid
 from contextlib import closing
-from dataclasses import asdict
+from dataclasses import replace
 from decimal import Decimal
 from pathlib import Path
 
@@ -18,6 +18,7 @@ from repro.envbuilder import EnvironmentBuilder
 from repro.github import fetch_issue
 from repro.llm import Budget, BudgetExceeded, OpenAIProvider, load_config
 from repro.parser import ModelClient, parse_issue
+from repro.result_writer import ArtifactError, write_run_artifacts
 from repro.sandbox import Sandbox
 from repro.tools import SandboxTools, tool_schemas
 
@@ -34,6 +35,14 @@ def _parser_fell_back(trace_path: Path) -> bool:
         return True
 
 
+def _failed_result(budget: Budget | None, outcome: str, reason: str) -> AgentResult:
+    if budget is None:
+        return AgentResult(outcome, None, None, 0, '0', 0, reason=reason)
+    return AgentResult(outcome, None, None, budget.steps,
+                       str(Decimal(budget.run_charged) / Decimal(1_000_000_000)),
+                       budget.clock() - budget.started, reason=reason)
+
+
 @app.command()
 def main(issue_url: str) -> None:
     """Fetch ISSUE_URL and attempt an offline reproduction."""
@@ -45,11 +54,12 @@ def main(issue_url: str) -> None:
     runs = root / 'runs'
     folder = runs / uuid.uuid4().hex
     folder.mkdir(parents=True)
-    limits = load_config(config / 'limits.yaml')
-    models = load_config(config / 'models.yaml')
-    model = load_config(config / 'parser.yaml')['default_model']
-    budget = Budget(runs / 'spend.sqlite', limits)
+    budget = None
     try:
+        limits = load_config(config / 'limits.yaml')
+        models = load_config(config / 'models.yaml')
+        model = load_config(config / 'parser.yaml')['default_model']
+        budget = Budget(runs / 'spend.sqlite', limits)
         with closing(OpenAIProvider(api_key=key)) as provider:
             issue, _ = fetch_issue(issue_url, token=os.environ.get('GITHUB_TOKEN'))
             parser_trace = folder / 'parser_trace.jsonl'
@@ -59,7 +69,7 @@ def main(issue_url: str) -> None:
                                      str(Decimal(budget.run_charged) / Decimal(1_000_000_000)),
                                      budget.clock() - budget.started,
                                      reason='Parser output failed validation; environment was not built')
-                (folder / 'result.json').write_text(json.dumps(asdict(result), indent=2), encoding='utf-8')
+                write_run_artifacts(folder, result)
                 typer.echo(f'Outcome: {result.outcome}\nReason: {result.reason}\n'
                            f'Conservative cost USD: {result.cost_usd}\nRun folder: {folder}')
                 raise typer.Exit(code=1)
@@ -84,12 +94,40 @@ def main(issue_url: str) -> None:
                                    model_config=models, model=model,
                                    trace_path=str(folder / 'trace.jsonl'),
                                    tool_schemas=tool_schemas())
-            (folder / 'result.json').write_text(json.dumps(asdict(result), indent=2), encoding='utf-8')
+            result = replace(result, duration=budget.clock() - budget.started)
+            try:
+                written = write_run_artifacts(folder, result)
+            except (ArtifactError, OSError) as exc:
+                failed = replace(result, outcome='error', repro_path=None, verdict=None,
+                                 reason=f'Unable to save candidate: {type(exc).__name__}')
+                write_run_artifacts(folder, failed)
+                typer.echo(f'Outcome: error\nReason: {failed.reason}\nRun folder: {folder}')
+                raise typer.Exit(code=1) from None
             typer.echo(f'Outcome: {result.outcome}\nReason: {result.reason or "none"}\n'
                        f'Verdict: {result.verdict or "none"}\n'
-                       f'Conservative cost USD: {result.cost_usd}\nRun folder: {folder}')
+                       f'Conservative cost USD: {result.cost_usd}\nRun folder: {folder}\n'
+                       f'Saved test: {written["test_file"] or "none"}')
+    except typer.Exit:
+        raise
+    except KeyboardInterrupt:
+        interrupted = _failed_result(budget, 'error', 'Interrupted by user')
+        write_run_artifacts(folder, interrupted)
+        typer.echo(f'Outcome: error\nReason: Interrupted by user\nRun folder: {folder}')
+        raise typer.Exit(code=130) from None
+    except Exception as exc:  # noqa: BLE001 - persist a sanitized result at the CLI boundary.
+        outcome = 'error'
+        if isinstance(exc, BudgetExceeded):
+            detail = str(exc).lower()
+            outcome = ('limit_hit:time' if 'time' in detail else
+                       'limit_hit:steps' if 'step' in detail else 'limit_hit:dollars')
+        failed = _failed_result(budget, outcome, f'Pipeline failed: {type(exc).__name__}')
+        write_run_artifacts(folder, failed)
+        typer.echo(f'Outcome: {failed.outcome}\nReason: {failed.reason}\n'
+                   f'Conservative cost USD: {failed.cost_usd}\nRun folder: {folder}')
+        raise typer.Exit(code=1) from None
     finally:
-        budget.close()
+        if budget is not None:
+            budget.close()
 
 
 if __name__ == '__main__':
