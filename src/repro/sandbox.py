@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import os
+from pathlib import Path
 from typing import Sequence
 
 
@@ -69,7 +71,8 @@ class Sandbox:
     """
     def __init__(self, image: str = 'python:3.11-slim', *, client=None,
                  memory: str = '512m', nano_cpus: int = 1_000_000_000,
-                 pids_limit: int = 128, max_timeout: float = 60, working_dir: str = '/tmp'):
+                 pids_limit: int = 128, max_timeout: float = 60, working_dir: str = '/tmp',
+                 writable_mount: str | Path | None = None):
         if nano_cpus <= 0 or pids_limit <= 0 or max_timeout <= 0:
             raise ValueError('CPU, process and timeout limits must be positive')
         if client is None:
@@ -88,6 +91,23 @@ class Sandbox:
         if not working_dir.startswith('/') or '..' in working_dir.split('/'):
             raise ValueError('working_dir must be an absolute container path')
         self.working_dir = working_dir
+        self.writable_mount = None
+        if writable_mount is not None:
+            path = Path(writable_mount)
+            if path.is_symlink():
+                raise ValueError('writable_mount must not be a symlink')
+            if path.name != 'repro' or path.parent.parent.name != 'runs':
+                raise ValueError('writable_mount must be runs/<id>/repro')
+            path.mkdir(parents=True, exist_ok=True)
+            if path.resolve().name != 'repro' or path.resolve().parent.parent.name != 'runs':
+                raise ValueError('writable_mount resolves outside runs/<id>/repro')
+            if not path.is_dir():
+                raise ValueError('writable_mount must be a directory')
+            # UID 65534 must be able to write on Linux; Docker Desktop translates
+            # bind mount permissions on Windows and macOS.
+            if os.name != 'nt':
+                path.chmod(0o777)
+            self.writable_mount = str(path.resolve())
 
     def close(self):
         if self._closed:
@@ -118,14 +138,25 @@ class Sandbox:
             raise ValueError('command must be a non-empty list of non-empty strings')
         if timeout <= 0 or timeout > self.max_timeout:
             raise ValueError('timeout must be positive and within the sandbox maximum')
+        mount_options = {}
+        if self.writable_mount is not None:
+            mount_options['volumes'] = {
+                self.writable_mount: {'bind': '/work/repro', 'mode': 'rw'}
+            }
+        if self.writable_mount is not None or self.working_dir.startswith('/var/tmp/repro'):
+            scratch = {'/tmp': 'rw,noexec,nosuid,size=64m'}
+            home = '/tmp'
+        else:
+            scratch = {'/var/tmp': 'rw,noexec,nosuid,size=64m'}
+            home = '/var/tmp'
         container = self.client.containers.create(
             self.image, command=list(command), user='65534:65534',
             network_mode=network_mode, mem_limit=self.memory,
             nano_cpus=self.nano_cpus, pids_limit=self.pids_limit,
             cap_drop=['ALL'], security_opt=['no-new-privileges:true'],
-            read_only=True, tmpfs={'/var/tmp': 'rw,noexec,nosuid,size=64m'},
-            working_dir=self.working_dir, environment={'HOME': '/var/tmp', 'TMPDIR': '/var/tmp', 'PYTHONDONTWRITEBYTECODE': '1'},
-            use_config_proxy=False, init=True,
+            read_only=True, tmpfs=scratch,
+            working_dir=self.working_dir, environment={'HOME': home, 'TMPDIR': home, 'PYTHONDONTWRITEBYTECODE': '1'},
+            use_config_proxy=False, init=True, **mount_options,
         )
         timed_out = False
         exit_code = None

@@ -81,16 +81,16 @@ def _write_json(path: Path, data: dict):
 # This script runs in a non-root container, with no host mounts or host keys.
 # pip builds execute project-controlled code; setup is networked and isolated.
 SETUP = r'''set -eu
-mkdir -p /tmp/repro
+mkdir -p /var/tmp/repro
 export GIT_CONFIG_NOSYSTEM=1 GIT_TERMINAL_PROMPT=0
-git -c init.templateDir= -c core.hooksPath=/dev/null init /tmp/repro/source
-git -C /tmp/repro/source -c protocol.file.allow=never fetch --depth=1 --no-tags "$1" "$2"
-git -C /tmp/repro/source -c core.hooksPath=/dev/null checkout --detach FETCH_HEAD
-test "$(git -C /tmp/repro/source rev-parse HEAD)" = "$2"
-python -m venv /tmp/repro/venv
+git -c init.templateDir= -c core.hooksPath=/dev/null init /var/tmp/repro/source
+git -C /var/tmp/repro/source -c protocol.file.allow=never fetch --depth=1 --no-tags "$1" "$2"
+git -C /var/tmp/repro/source -c core.hooksPath=/dev/null checkout --detach FETCH_HEAD
+test "$(git -C /var/tmp/repro/source rev-parse HEAD)" = "$2"
+python -m venv /var/tmp/repro/venv
 shift 2
-/tmp/repro/venv/bin/python -m pip install --disable-pip-version-check --no-cache-dir /tmp/repro/source pytest "$@"
-/tmp/repro/venv/bin/python -m pip freeze > /tmp/repro/packages.txt
+/var/tmp/repro/venv/bin/python -m pip install --disable-pip-version-check --no-cache-dir /var/tmp/repro/source pytest "$@"
+/var/tmp/repro/venv/bin/python -m pip freeze > /var/tmp/repro/packages.txt
 ''' 
 
 
@@ -108,7 +108,7 @@ class EnvironmentBuilder:
             raise ValueError('Test dependencies must be simple package requirements')
         sha, selected = resolve_commit(repo, version, self.http)
         base = self.docker.images.get(self.base_image)
-        digest = hashlib.sha256(json.dumps([repo.lower(), sha, base.id, 'builder-v2-git', test_dependencies]).encode()).hexdigest()[:32]
+        digest = hashlib.sha256(json.dumps([repo.lower(), sha, base.id, 'builder-v3-var-tmp', test_dependencies]).encode()).hexdigest()[:32]
         image_tag = f'issue-repro-env:{digest}'
         cache_hit = True
         try:
@@ -142,9 +142,9 @@ class EnvironmentBuilder:
                 container.remove(force=True)
         # Inspect through the same network-disabled, non-root runtime used for tests.
         with Sandbox(image=image_tag, client=self.docker, max_timeout=60,
-                     working_dir='/tmp/repro/source') as sandbox:
-            result = sandbox.run(['/tmp/repro/venv/bin/python', '-c',
-                "import json,platform; print(json.dumps({'python':platform.python_version(),'packages':open('/tmp/repro/packages.txt').read().splitlines()}))"])
+                     working_dir='/var/tmp/repro/source') as sandbox:
+            result = sandbox.run(['/var/tmp/repro/venv/bin/python', '-c',
+                "import json,platform; print(json.dumps({'python':platform.python_version(),'packages':open('/var/tmp/repro/packages.txt').read().splitlines()}))"])
         if result.timed_out or result.exit_code != 0:
             raise BuildError('Unable to inspect built environment: ' + result.output[-2000:])
         details = json.loads(result.output)
@@ -173,8 +173,8 @@ def main():
             meta = EnvironmentBuilder(dc, hc).build(args.repo, args.version, args.output_dir, test_dependencies=args.test_dependency)
             if args.run_tests:
                 with Sandbox(image=meta['image'], client=dc, max_timeout=300,
-                             working_dir='/tmp/repro/source') as sandbox:
-                    result = sandbox.run(['/tmp/repro/venv/bin/python', '-m', 'pytest', '-ra', '-p', 'no:cacheprovider'], timeout=300)
+                             working_dir='/var/tmp/repro/source') as sandbox:
+                    result = sandbox.run(['/var/tmp/repro/venv/bin/python', '-m', 'pytest', '-ra', '-p', 'no:cacheprovider'], timeout=300)
                 print(result.output)
                 if result.timed_out or result.exit_code != 0:
                     parser.exit(1, f'Offline pytest failed: exit={result.exit_code}, timeout={result.timed_out}\n')

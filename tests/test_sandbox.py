@@ -1,5 +1,7 @@
 import unittest
 from unittest.mock import Mock, patch
+import tempfile
+from pathlib import Path
 
 from repro.sandbox import Sandbox
 
@@ -26,6 +28,24 @@ class SandboxTests(unittest.TestCase):
     def test_setup_is_explicitly_networked(self):
         self.sandbox.run_setup(['python', '--version'])
         self.assertEqual(self.client.containers.create.call_args.kwargs['network_mode'], 'bridge')
+
+    def test_optional_writable_mount_is_only_repro_directory(self):
+        with tempfile.TemporaryDirectory() as root:
+            path = Path(root) / 'runs' / 'run1' / 'repro'
+            sandbox = Sandbox(client=self.client, writable_mount=path)
+            sandbox.run(['echo', 'hello'])
+            options = self.client.containers.create.call_args.kwargs
+            self.assertEqual(options['volumes'], {
+                str(path.resolve()): {'bind': '/work/repro', 'mode': 'rw'}
+            })
+            self.assertTrue(options['read_only'])
+            self.assertIn('/tmp', options['tmpfs'])
+            self.assertEqual(options['network_mode'], 'none')
+            self.assertEqual(options['environment']['PYTHONDONTWRITEBYTECODE'], '1')
+
+    def test_default_does_not_mount_host_directory(self):
+        self.sandbox.run(['echo', 'hello'])
+        self.assertNotIn('volumes', self.client.containers.create.call_args.kwargs)
 
     def test_validation_precedes_container_creation(self):
         for command, timeout in [([], 1), ('echo hello', 1), (['echo'], 61)]:

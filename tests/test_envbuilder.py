@@ -73,7 +73,7 @@ class ResolutionTests(unittest.TestCase):
 
     def test_setup_pins_and_checks_git_commit(self):
         from repro.envbuilder import SETUP
-        self.assertIn('git -C /tmp/repro/source', SETUP)
+        self.assertIn('git -C /var/tmp/repro/source', SETUP)
         self.assertIn('checkout --detach FETCH_HEAD', SETUP)
         self.assertIn('rev-parse HEAD', SETUP)
         self.assertIn('"$2"', SETUP)
