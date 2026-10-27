@@ -22,6 +22,7 @@ From PowerShell, after installing the package and with Linux containers enabled:
 python -m pip install -e ".[dev]"
 python -m pytest -m "not docker and not network"
 docker pull python:3.11-slim
+docker pull python:3.11
 python -m pytest -m docker
 python -m repro.envbuilder mahmoud/boltons --version 23.0.0 --output-dir environment/boltons --test-dependency "pytest<9"
 $image = (Get-Content environment\boltons\environment.json | ConvertFrom-Json).image
@@ -29,10 +30,9 @@ python scripts/check_isolation.py --image $image
 ```
 
 The Docker-marked tests and isolation script require a running Docker daemon.
-The script checks loopback connection refusal, but without a host-side test
-server it does not independently prove isolation from every host service. The
-image's network mode is configured as `none` in every agent run. Network and
-Docker tests have not been run in the development environment.
+The script checks that a host-side localhost listener cannot be reached from
+the container. The image's network mode is configured as `none` in every agent
+run. Network and Docker tests have not been run in the development environment.
 
 Only after approving the estimated cost, run the paid test:
 

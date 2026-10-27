@@ -15,7 +15,7 @@ import typer
 from repro.agent import run_agent
 from repro.envbuilder import EnvironmentBuilder
 from repro.github import fetch_issue
-from repro.llm import Budget, OpenAIProvider, load_config
+from repro.llm import Budget, BudgetExceeded, OpenAIProvider, load_config
 from repro.parser import ModelClient, parse_issue
 from repro.sandbox import Sandbox
 from repro.tools import SandboxTools, tool_schemas
@@ -48,7 +48,11 @@ def main(issue_url: str) -> None:
             if token:
                 headers['Authorization'] = 'Bearer ' + token
             with closing(docker.from_env()) as dc, httpx.Client(headers=headers, timeout=20) as hc:
-                environment = EnvironmentBuilder(dc, hc).build(record.repo, record.version, folder)
+                remaining = int(float(limits['max_seconds']) - (budget.clock() - budget.started))
+                if remaining <= 0:
+                    raise BudgetExceeded('Time limit reached before environment build')
+                environment = EnvironmentBuilder(dc, hc).build(record.repo, record.version, folder,
+                                                               timeout=min(600, remaining))
                 sandbox = Sandbox(image=environment['image'], client=dc, max_timeout=60,
                                   working_dir='/var/tmp/repro/source',
                                   writable_mount=folder / 'repro')

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import socket
 import tempfile
 from pathlib import Path
 
@@ -43,7 +44,16 @@ def main() -> int:
                 record('root is read-only', py(denied % '/var/tmp/isolation-write-check'))
                 record('DNS blocked', py("import socket; socket.getaddrinfo('example.com',80)"), expected=1)
                 record('public IP blocked', py("import socket; socket.create_connection(('1.1.1.1',80),2)"), expected=1)
-                record('localhost blocked', py("import socket; socket.create_connection(('127.0.0.1',9),2)"), expected=1)
+                with socket.socket() as listener:
+                    listener.bind(('127.0.0.1', 0))
+                    listener.listen(1)
+                    port = listener.getsockname()[1]
+                    with socket.create_connection(('127.0.0.1', port), timeout=2):
+                        connection, _ = listener.accept()
+                        connection.close()
+                    record('host localhost blocked',
+                           py(f"import socket; socket.create_connection(('127.0.0.1',{port}),2)"),
+                           expected=1)
                 os.environ['REPRO_ISOLATION_SENTINEL'] = 'isolation-secret-sentinel'
                 record('host environment hidden', py("import os; assert 'REPRO_ISOLATION_SENTINEL' not in os.environ and 'META_MODEL_API_KEY' not in os.environ and 'GITHUB_TOKEN' not in os.environ"))
                 record('Docker socket absent', py("import os; assert not os.path.exists('/var/run/docker.sock')"))
