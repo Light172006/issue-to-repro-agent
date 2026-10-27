@@ -34,6 +34,33 @@ def _is_wait_timeout(error: Exception) -> bool:
     return False
 
 
+def _read_log(container):
+    stream = container.logs(stdout=True, stderr=True, stream=True)
+    if isinstance(stream, bytes):
+        stream = (stream,)
+    first = bytearray()
+    last = bytearray()
+    total = 0
+    try:
+        for chunk in stream:
+            total += len(chunk)
+            if len(first) < 16000:
+                first.extend(chunk[:16000 - len(first)])
+            last.extend(chunk[-16000:])
+            if len(last) > 16000:
+                del last[:-16000]
+    finally:
+        if hasattr(stream, 'close'):
+            stream.close()
+    if total <= 16000:
+        data = first
+    elif total <= 32000:
+        data = first + last[-(total - len(first)):]
+    else:
+        data = first + b'\n... output truncated ...\n' + last
+    return data.decode('utf-8', errors='replace')
+
+
 class Sandbox:
     """Local Docker sandbox. Uses Linux containers and never mounts host files.
 
@@ -51,6 +78,7 @@ class Sandbox:
             self._owns_client = True
         else:
             self._owns_client = False
+        self._closed = False
         self.client = client
         self.image = image
         self.memory = memory
@@ -62,6 +90,9 @@ class Sandbox:
         self.working_dir = working_dir
 
     def close(self):
+        if self._closed:
+            return
+        self._closed = True
         if self._owns_client:
             self.client.close()
 
@@ -80,6 +111,8 @@ class Sandbox:
         return self._run(command, timeout=timeout, network_mode='bridge')
 
     def _run(self, command: Sequence[str], *, timeout: float, network_mode: str) -> SandboxResult:
+        if self._closed:
+            raise RuntimeError('Sandbox is closed')
         if (not isinstance(command, (list, tuple)) or not command or
                 any(not isinstance(arg, str) or not arg for arg in command)):
             raise ValueError('command must be a non-empty list of non-empty strings')
@@ -107,9 +140,8 @@ class Sandbox:
                     raise
                 timed_out = True
                 container.kill()
-            output = container.logs(stdout=True, stderr=True, tail=1000).decode('utf-8', errors='replace')
-            if len(output) > 32_000:
-                output = output[:16_000] + '\n... output truncated ...\n' + output[-16_000:]
+            output = _read_log(container)
             return SandboxResult(exit_code=exit_code, output=output, timed_out=timed_out)
         finally:
             container.remove(force=True)
+
