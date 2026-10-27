@@ -18,6 +18,8 @@ try:
     record = parse_issue(issue, client)
     print('Smoke result:', record.model_dump_json())
     print('Conservative recorded cost USD:', Decimal(budget.run_charged) / Decimal(1_000_000_000))
+    if record.version is None and len(record.missing) == 10:
+        raise SystemExit('Smoke test failed: the parser returned its validation fallback.')
 finally:
     budget.close()
     provider.close()

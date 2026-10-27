@@ -148,7 +148,7 @@ class FakeProvider:
         self.output_tokens = output_tokens
         self.calls = 0
 
-    def complete(self, *, model, messages, tools, max_output_tokens, timeout, temperature=None, json_schema=None):
+    def complete(self, *, model, messages, tools, max_output_tokens, timeout, temperature=None, json_schema=None, reasoning_effort=None):
         self.calls += 1
         return self.message, self.input_tokens, self.output_tokens
 
@@ -164,13 +164,15 @@ class OpenAIProvider:
                                  headers={'Authorization': f'Bearer {api_key}'}, timeout=30)
         self.client = OpenAI(base_url=base_url, api_key=api_key, max_retries=0)
 
-    def count(self, *, model, messages, tools, timeout, temperature=None, json_schema=None):
+    def count(self, *, model, messages, tools, timeout, temperature=None, json_schema=None, reasoning_effort=None):
         body = {'model': model, 'input': messages}
         if tools:
             body['tools'] = tools
             body['parallel_tool_calls'] = False
         if temperature is not None:
             body['temperature'] = temperature
+        if reasoning_effort is not None:
+            body['reasoning'] = {'effort': reasoning_effort}
         if json_schema is not None:
             body['text'] = {'format': {'type': 'json_schema', 'name': 'issue_record', 'schema': json_schema, 'strict': True}}
         response = self.http.post('responses/input_tokens', json=body, timeout=timeout)
@@ -180,13 +182,15 @@ class OpenAIProvider:
             raise UsageUnavailable('Invalid preflight token count')
         return count
 
-    def complete(self, *, model, messages, tools, max_output_tokens, timeout, temperature=None, json_schema=None):
+    def complete(self, *, model, messages, tools, max_output_tokens, timeout, temperature=None, json_schema=None, reasoning_effort=None):
         params = dict(model=model, input=messages, max_output_tokens=max_output_tokens,
                       timeout=timeout, store=False)
         if tools:
             params.update(tools=tools, parallel_tool_calls=False)
         if temperature is not None:
             params['temperature'] = temperature
+        if reasoning_effort is not None:
+            params['reasoning'] = {'effort': reasoning_effort}
         if json_schema is not None:
             params['text'] = {'format': {'type': 'json_schema', 'name': 'issue_record', 'schema': json_schema, 'strict': True}}
         response = self.client.responses.create(**params)
@@ -201,7 +205,8 @@ class OpenAIProvider:
 
 def call_model(*, provider, model: str, messages: list, tools: list | None,
                budget: Budget, model_config: dict, trace_path: str | Path,
-               max_output_tokens: int = 256, temperature: float | None = None, json_schema: dict | None = None) -> Reply:
+               max_output_tokens: int = 256, temperature: float | None = None, json_schema: dict | None = None,
+               reasoning_effort: str | None = None) -> Reply:
     """Make one call. Reserve its maximum possible charge before sending.
 
     Real calls use Meta's preflight count plus a safety margin and bounded output.
@@ -246,6 +251,8 @@ def call_model(*, provider, model: str, messages: list, tools: list | None,
                 count_options['temperature'] = temperature
             if json_schema is not None:
                 count_options['json_schema'] = json_schema
+            if reasoning_effort is not None:
+                count_options['reasoning_effort'] = reasoning_effort
             count = provider.count(model=model, messages=messages, tools=tools, timeout=min(30, remaining), **count_options)
         except Exception:
             raise ProviderError('Provider token-count request failed') from None
@@ -268,6 +275,8 @@ def call_model(*, provider, model: str, messages: list, tools: list | None,
                 options['temperature'] = temperature
             if json_schema is not None:
                 options['json_schema'] = json_schema
+            if reasoning_effort is not None:
+                options['reasoning_effort'] = reasoning_effort
             message, inp, out = provider.complete(model=model, messages=messages, tools=tools,
                                                   max_output_tokens=max_output_tokens, timeout=remaining, **options)
         except Exception:

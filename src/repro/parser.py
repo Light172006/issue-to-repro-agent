@@ -182,7 +182,7 @@ class ModelClient:
     def __call__(self, messages: list[dict[str, str]], schema: dict) -> Any:
         return call_model(provider=self.provider, model=self.model, messages=messages, tools=None,
                           budget=self.budget, model_config=self.model_config, trace_path=self.trace_path,
-                          max_output_tokens=2048, temperature=0, json_schema=schema)
+                          max_output_tokens=2048, temperature=0, json_schema=schema, reasoning_effort='minimal')
 
 
 def parse_issue(issue: dict, llm: ModelClient) -> IssueRecord:

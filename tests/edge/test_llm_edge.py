@@ -141,7 +141,8 @@ def test_count_receives_same_json_format_as_generation():
     provider.http=httpx.Client(base_url='https://api.meta.ai/v1',transport=httpx.MockTransport(respond))
     try:
         assert provider.count(model='muse-spark-1.3', messages=[], tools=None, timeout=5,
-                              temperature=0, json_schema={'type':'object'}) == 42
+                              temperature=0, json_schema={'type':'object'}, reasoning_effort='minimal') == 42
         assert seen[0]['temperature'] == 0
+        assert seen[0]['reasoning'] == {'effort': 'minimal'}
         assert seen[0]['text']['format']['schema'] == {'type':'object'}
     finally: provider.http.close()

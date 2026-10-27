@@ -56,6 +56,7 @@ def test_repair_then_success(setup):
     assert provider.complete.call_count == 2
     assert 'Repair schema validation error' in provider.complete.call_args.kwargs['messages'][1]['content']
     assert provider.complete.call_args.kwargs['temperature'] == 0
+    assert provider.complete.call_args.kwargs['reasoning_effort'] == 'minimal'
 
 
 def test_bad_output_twice_returns_missing_everything(setup):
@@ -156,7 +157,9 @@ def test_structured_request_hook_uses_responses_format():
     provider.client.responses.create.return_value.usage.input_tokens = 1
     provider.client.responses.create.return_value.usage.output_tokens = 1
     provider.complete(model='muse-spark-1.3', messages=[], tools=None,
-                      max_output_tokens=100, timeout=10, temperature=0, json_schema=SCHEMA)
+                      max_output_tokens=100, timeout=10, temperature=0, json_schema=SCHEMA,
+                      reasoning_effort='minimal')
     kwargs = provider.client.responses.create.call_args.kwargs
     assert kwargs['temperature'] == 0 and kwargs['text']['format']['schema'] == SCHEMA
+    assert kwargs['reasoning'] == {'effort': 'minimal'}
     assert kwargs['text']['format']['type'] == 'json_schema'
