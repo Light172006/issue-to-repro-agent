@@ -37,6 +37,8 @@ def main() -> int:
                               working_dir='/var/tmp/repro/source', max_timeout=30)
             try:
                 record('non-root', py('import os; assert os.getuid() != 0'))
+                record('python uses built virtualenv',
+                       ['python', '-c', "import sys; assert sys.prefix == '/var/tmp/repro/venv'"])
                 record('write repro', py("open('/work/repro/persist.txt','w').write('persist')"))
                 record('second container sees file', py("assert open('/work/repro/persist.txt').read() == 'persist'"))
                 denied = "import errno; exec(\"try:\\n open(%r, 'w')\\nexcept OSError as e:\\n assert e.errno == errno.EROFS\\nelse:\\n raise AssertionError('write succeeded')\")"

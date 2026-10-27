@@ -100,3 +100,39 @@ class EndpointTests(unittest.TestCase):
         self.assertEqual(seen, ['https://api.meta.ai/v1/responses/input_tokens'])
 
 if __name__ == '__main__': unittest.main()
+
+
+def test_real_adapter_accepts_paired_local_tool_history(tmp_path):
+    from unittest.mock import Mock
+    from repro.llm import Budget, OpenAIProvider, call_model
+
+    limits = {'max_steps': 25, 'max_run_usd': 1, 'max_seconds': 900,
+              'max_daily_usd': 5, 'max_total_usd': 120}
+    budget = Budget(tmp_path / 'ledger.sqlite', limits)
+    provider = object.__new__(OpenAIProvider)
+    provider.count = Mock(return_value=10)
+    provider.complete = Mock(return_value=([], 10, 5))
+    messages = [{'role': 'user', 'content': 'task'},
+                {'type': 'function_call', 'call_id': 'call_1', 'name': 'run_shell', 'arguments': '{}'},
+                {'type': 'function_call_output', 'call_id': 'call_1', 'output': 'ok'}]
+    prices = {'muse-spark-1.3': {'input_per_million': '1.25', 'output_per_million': '4.25'}}
+    try:
+        call_model(provider=provider, model='muse-spark-1.3', messages=messages,
+                   tools=[{'type': 'function'}], budget=budget, model_config=prices,
+                   trace_path=tmp_path / 'trace')
+    finally:
+        budget.close()
+    assert provider.count.call_args.kwargs['messages'] == messages
+    assert provider.complete.call_args.kwargs['messages'] == messages
+
+
+def test_tool_history_rejects_unpaired_or_hosted_actions():
+    from repro.llm import _valid_messages
+
+    call = {'type': 'function_call', 'call_id': 'call_1', 'name': 'run_shell', 'arguments': '{}'}
+    output = {'type': 'function_call_output', 'call_id': 'call_1', 'output': 'ok'}
+    assert _valid_messages([call, output], allow_tools=True)
+    assert not _valid_messages([call], allow_tools=True)
+    assert not _valid_messages([call, {**output, 'call_id': 'different'}], allow_tools=True)
+    assert not _valid_messages([call, output], allow_tools=False)
+    assert not _valid_messages([{'type': 'web_search_call', 'call_id': 'call_1'}], allow_tools=True)

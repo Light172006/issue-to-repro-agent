@@ -42,6 +42,7 @@ class SandboxTests(unittest.TestCase):
             self.assertIn('/tmp', options['tmpfs'])
             self.assertEqual(options['network_mode'], 'none')
             self.assertEqual(options['environment']['PYTHONDONTWRITEBYTECODE'], '1')
+            self.assertTrue(options['environment']['PATH'].startswith('/var/tmp/repro/venv/bin:'))
 
     def test_default_does_not_mount_host_directory(self):
         self.sandbox.run(['echo', 'hello'])

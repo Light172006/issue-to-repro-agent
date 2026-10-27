@@ -141,6 +141,35 @@ def load_config(path: str | Path) -> dict:
         return json.load(f)
 
 
+def _valid_messages(messages: object, *, allow_tools: bool) -> bool:
+    """Accept text and paired local function calls, never hosted tool actions."""
+    if not isinstance(messages, list):
+        return False
+    pending = None
+    for item in messages:
+        if not isinstance(item, dict):
+            return False
+        if set(item) == {'role', 'content'}:
+            if pending is not None or item['role'] not in ('system', 'developer', 'user', 'assistant'):
+                return False
+            if not isinstance(item['content'], str):
+                return False
+        elif allow_tools and set(item) == {'type', 'call_id', 'name', 'arguments'}:
+            if (pending is not None or item['type'] != 'function_call' or
+                    any(not isinstance(item[k], str) or not item[k] for k in ('call_id', 'name')) or
+                    not isinstance(item['arguments'], str)):
+                return False
+            pending = item['call_id']
+        elif allow_tools and set(item) == {'type', 'call_id', 'output'}:
+            if (item['type'] != 'function_call_output' or pending is None or
+                    item['call_id'] != pending or not isinstance(item['output'], str)):
+                return False
+            pending = None
+        else:
+            return False
+    return pending is None
+
+
 class FakeProvider:
     def __init__(self, message='fake reply', input_tokens=10, output_tokens=5):
         self.message = message
@@ -232,12 +261,8 @@ def call_model(*, provider, model: str, messages: list, tools: list | None,
         if (Decimal(str(cfg['input_per_million'])) < minimum_prices[model][0] or
                 Decimal(str(cfg['output_per_million'])) < minimum_prices[model][1]):
             raise ValueError('Configured price is below the verified standard rate')
-        if not isinstance(messages, list) or any(
-            not isinstance(m, dict) or set(m) != {'role', 'content'} or
-            m['role'] not in ('system', 'developer', 'user', 'assistant') or
-            not isinstance(m['content'], str) for m in messages
-        ):
-            raise ValueError('Only simple text messages are supported')
+        if not _valid_messages(messages, allow_tools=bool(tools)):
+            raise ValueError('Invalid text messages or local function-call history')
         if tools and any(not isinstance(t, dict) or t.get('type') != 'function' for t in tools):
             raise ValueError('Only local function tools are allowed')
         if budget.steps >= int(budget.limits['max_steps']):

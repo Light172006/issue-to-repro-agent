@@ -151,13 +151,16 @@ class Sandbox:
         else:
             scratch = {'/var/tmp': 'rw,noexec,nosuid,size=64m'}
             home = '/var/tmp'
+        environment = {'HOME': home, 'TMPDIR': home, 'PYTHONDONTWRITEBYTECODE': '1'}
+        if self.writable_mount is not None:
+            environment['PATH'] = '/var/tmp/repro/venv/bin:/usr/local/bin:/usr/bin:/bin'
         container = self.client.containers.create(
             self.image, command=list(command), user='65534:65534',
             network_mode=network_mode, mem_limit=self.memory,
             nano_cpus=self.nano_cpus, pids_limit=self.pids_limit,
             cap_drop=['ALL'], security_opt=['no-new-privileges:true'],
             read_only=True, tmpfs=scratch,
-            working_dir=self.working_dir, environment={'HOME': home, 'TMPDIR': home, 'PYTHONDONTWRITEBYTECODE': '1'},
+            working_dir=self.working_dir, environment=environment,
             use_config_proxy=False, init=True, **mount_options,
         )
         timed_out = False

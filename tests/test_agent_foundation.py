@@ -54,6 +54,7 @@ def test_no_tool_calls_cannot_claim_success(tmp_path):
     finally:
         budget.close()
     assert result.outcome == 'error'
+    assert result.reason == 'Model returned no tool call twice'
     assert result.steps == 2
     assert toolbox.calls == []
     assert toolbox.closed
@@ -240,3 +241,82 @@ def test_agent_uses_minimal_reasoning_and_records_output_limit(tmp_path):
     events = [json.loads(line) for line in trace_path.read_text().splitlines()]
     assert events[0]['error'] == 'No tool call; output token limit reached'
     assert events[-1]['outcome'] == 'error'
+
+
+def test_tool_results_are_sent_as_paired_responses_api_items(tmp_path):
+    limits = {'max_steps': 25, 'max_run_usd': 1, 'max_seconds': 900,
+              'max_daily_usd': 5, 'max_total_usd': 120}
+    budget = Budget(tmp_path / 'ledger.sqlite', limits)
+    provider = FakeProvider()
+    seen = []
+    replies = iter([
+        [{'type': 'function_call', 'name': 'run_shell',
+          'arguments': '{"command":"echo hello"}', 'call_id': 'call_1'}],
+        [{'type': 'function_call', 'name': 'give_up',
+          'arguments': '{"reason":"done"}', 'call_id': 'call_2'}],
+    ])
+
+    def complete(**kwargs):
+        seen.append(kwargs['messages'])
+        return next(replies), 10, 5
+
+    class TwoStepToolbox(Toolbox):
+        def execute(self, name, args):
+            self.calls.append((name, args))
+            return ({'output': 'hello', 'exit_code': 0} if name == 'run_shell' else
+                    {'output': 'done', 'outcome': 'gave_up'})
+
+    provider.complete = complete
+    toolbox = TwoStepToolbox()
+    config = {'fake': {'input_token_ceiling': 1000, 'input_per_million': '1.25',
+                       'output_per_million': '4.25'}}
+    try:
+        result = run_agent(IssueRecord(repo='example/project', issue=1), toolbox,
+                           provider=provider, budget=budget, model_config=config,
+                           model='fake', trace_path=str(tmp_path / 'trace.jsonl'),
+                           tool_schemas=[])
+    finally:
+        budget.close()
+    assert result.outcome == 'gave_up'
+    assert seen[1][-2] == {'type': 'function_call', 'call_id': 'call_1',
+                           'name': 'run_shell', 'arguments': '{"command":"echo hello"}'}
+    assert seen[1][-1] == {'type': 'function_call_output', 'call_id': 'call_1',
+                           'output': '<untrusted_tool_output>\nhello\nTool exit code: 0\n</untrusted_tool_output>'}
+
+
+def test_compaction_keeps_paired_tool_history(tmp_path):
+    from repro.llm import _valid_messages
+
+    limits = {'max_steps': 25, 'max_run_usd': 1, 'max_seconds': 900,
+              'max_daily_usd': 5, 'max_total_usd': 120}
+    budget = Budget(tmp_path / 'ledger.sqlite', limits)
+    provider = FakeProvider()
+    seen = []
+
+    def complete(**kwargs):
+        seen.append(kwargs['messages'])
+        number = len(seen)
+        name = 'give_up' if number == 8 else 'run_shell'
+        arguments = '{"reason":"done"}' if name == 'give_up' else '{"command":"echo x"}'
+        return [{'type': 'function_call', 'name': name, 'arguments': arguments,
+                 'call_id': f'call_{number}'}], 10, 5
+
+    class LoopToolbox(Toolbox):
+        def execute(self, name, args):
+            return {'output': 'done', 'outcome': 'gave_up'} if name == 'give_up' else {'output': 'x'}
+
+    provider.complete = complete
+    toolbox = LoopToolbox()
+    config = {'fake': {'input_token_ceiling': 1000, 'input_per_million': '1.25',
+                       'output_per_million': '4.25'}}
+    try:
+        result = run_agent(IssueRecord(repo='example/project', issue=1), toolbox,
+                           provider=provider, budget=budget, model_config=config,
+                           model='fake', trace_path=str(tmp_path / 'trace.jsonl'),
+                           tool_schemas=[], compact_after=3)
+    finally:
+        budget.close()
+    assert result.outcome == 'gave_up'
+    assert any('untrusted_history_summary' in m.get('content', '') for m in seen[-1])
+    assert _valid_messages(seen[-1], allow_tools=True)
+    assert seen[-1][0]['role'] == 'system'

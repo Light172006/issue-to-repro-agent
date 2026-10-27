@@ -62,7 +62,8 @@ def main(issue_url: str) -> None:
                                    trace_path=str(folder / 'trace.jsonl'),
                                    tool_schemas=tool_schemas())
             (folder / 'result.json').write_text(json.dumps(asdict(result), indent=2), encoding='utf-8')
-            typer.echo(f'Outcome: {result.outcome}\nVerdict: {result.verdict or "none"}\n'
+            typer.echo(f'Outcome: {result.outcome}\nReason: {result.reason or "none"}\n'
+                       f'Verdict: {result.verdict or "none"}\n'
                        f'Conservative cost USD: {result.cost_usd}\nRun folder: {folder}')
     finally:
         budget.close()
