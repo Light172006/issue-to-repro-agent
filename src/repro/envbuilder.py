@@ -24,7 +24,7 @@ def resolve_commit(repo: str, version: str | None, client) -> tuple[str, str]:
     """Resolve a GitHub version as a tag (v-prefixed first) or full SHA."""
     owner, name, _ = parse_issue_url(f'https://github.com/{repo}/issues/1')
     base = f'https://api.github.com/repos/{owner}/{name}'
-    if version and not (SHA.fullmatch(version) or TAG.fullmatch(version)):
+    if version is not None and (not isinstance(version, str) or not version or not (SHA.fullmatch(version) or TAG.fullmatch(version))):
         raise ValueError('Version must be a simple tag or full lowercase commit SHA')
     choices = ([version] if version and SHA.fullmatch(version) else
                ([version, version[1:]] if version.startswith('v') else ['v' + version, version]) if version else ['HEAD'])
@@ -184,3 +184,4 @@ def main():
         parser.exit(1, f'Error: {exc}\n')
 
 if __name__ == '__main__': main()
+
