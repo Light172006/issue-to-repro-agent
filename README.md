@@ -4,7 +4,7 @@ A Python tool under development that aims to turn GitHub bug reports into verifi
 
 ## Status
 
-Step 0 and the Step 1 real-call check are complete. Step 2 includes an issue fetcher; its five-repository live test remains pending. No reproduction or sandbox functionality has been implemented.
+Step 0 and the Step 1 real-call check are complete. Step 2 includes an issue fetcher and passed its five-repository live test. Step 3 contains the sandbox; real Docker integration tests remain pending. Reproduction is not implemented.
 
 ## Windows setup and validation
 
@@ -41,4 +41,17 @@ python -m repro.github https://github.com/encode/httpx/issues/3433
 
 The command saves a JSON record in `.cache/issues/`. Repeat it to use the cache; add `--refresh` to fetch fresh data or `--cache-dir PATH` to choose a different folder. An optional read-only `GITHUB_TOKEN` environment variable increases GitHub API rate limits. Records contain untrusted issue text, labels, all comments and URLs found in text. Linked resources are listed but not downloaded. Treat cached issue text as untrusted, and avoid committing it or sharing it without review.
 
-Step 2's five-repository live test is pending. The main `repro` CLI, parser and sandbox belong to later steps.
+The main `repro` CLI and parser belong to later steps.
+
+## Docker sandbox (Step 3)
+
+Use Linux containers and pull the test image once:
+
+```powershell
+docker pull python:3.11-slim
+$env:REPRO_DOCKER_TESTS = "1"
+python -m pytest tests/test_sandbox.py tests/test_sandbox_integration.py -v
+Remove-Item Env:REPRO_DOCKER_TESTS
+```
+
+`Sandbox.run()` creates a fresh non-root container per command with no external networking, CPU, memory and process limits, no mounted host files, a read-only root filesystem and dropped capabilities. `run_setup()` uses a separate network-enabled container for trusted setup commands only; never use it for issue code or pytest. Container filesystem changes are discarded after every command. Persistent environments and output mounts belong to Step 4. Docker daemon and API operations themselves are not covered by the command timeout, and the returned logs are truncated after collection. Docker is not an absolute security boundary.
