@@ -81,33 +81,21 @@ def _write_json(path: Path, data: dict):
 # This script runs in a non-root container, with no host mounts or host keys.
 # pip builds execute project-controlled code; setup is networked and isolated.
 SETUP = r'''set -eu
-mkdir -p /tmp/repro/source
-python - "$1" <<'INNER'
-import io, tarfile, urllib.request, sys
-with urllib.request.urlopen(sys.argv[1], timeout=60) as response:
-    archive = response.read(100 * 1024 * 1024 + 1)
-if len(archive) > 100 * 1024 * 1024: raise RuntimeError('Archive too large')
-with tarfile.open(fileobj=io.BytesIO(archive), mode='r:gz') as tf:
-    members = tf.getmembers()
-    if len(members) > 100000: raise RuntimeError('Too many archive entries')
-    if sum(m.size for m in members) > 512 * 1024 * 1024: raise RuntimeError('Expanded archive too large')
-    for m in members:
-        parts = m.name.split('/')[1:]
-        if not parts: continue
-        if any(p in ('', '.', '..') for p in parts) or not (m.isfile() or m.isdir()):
-            raise RuntimeError('Unsupported archive path or entry type')
-        m.name = '/'.join(parts)
-        tf.extract(m, '/tmp/repro/source', set_attrs=False)
-INNER
+mkdir -p /tmp/repro
+export GIT_CONFIG_NOSYSTEM=1 GIT_TERMINAL_PROMPT=0
+git -c init.templateDir= -c core.hooksPath=/dev/null init /tmp/repro/source
+git -C /tmp/repro/source -c protocol.file.allow=never fetch --depth=1 --no-tags "$1" "$2"
+git -C /tmp/repro/source -c core.hooksPath=/dev/null checkout --detach FETCH_HEAD
+test "$(git -C /tmp/repro/source rev-parse HEAD)" = "$2"
 python -m venv /tmp/repro/venv
-shift
+shift 2
 /tmp/repro/venv/bin/python -m pip install --disable-pip-version-check --no-cache-dir /tmp/repro/source pytest "$@"
 /tmp/repro/venv/bin/python -m pip freeze > /tmp/repro/packages.txt
-'''
+''' 
 
 
 class EnvironmentBuilder:
-    def __init__(self, docker_client, http_client, *, base_image='python:3.11-slim'):
+    def __init__(self, docker_client, http_client, *, base_image='python:3.11'):
         self.docker = docker_client
         self.http = http_client
         self.base_image = base_image
@@ -120,7 +108,7 @@ class EnvironmentBuilder:
             raise ValueError('Test dependencies must be simple package requirements')
         sha, selected = resolve_commit(repo, version, self.http)
         base = self.docker.images.get(self.base_image)
-        digest = hashlib.sha256(json.dumps([repo.lower(), sha, base.id, 'builder-v1', test_dependencies]).encode()).hexdigest()[:32]
+        digest = hashlib.sha256(json.dumps([repo.lower(), sha, base.id, 'builder-v2-git', test_dependencies]).encode()).hexdigest()[:32]
         image_tag = f'issue-repro-env:{digest}'
         cache_hit = True
         try:
@@ -131,9 +119,9 @@ class EnvironmentBuilder:
                 raise
             cache_hit = False
             owner, name, _ = parse_issue_url(f'https://github.com/{repo}/issues/1')
-            url = f'https://api.github.com/repos/{owner}/{name}/tarball/{sha}'
+            url = f'https://github.com/{owner}/{name}.git'
             container = self.docker.containers.create(
-                self.base_image, command=['sh', '-c', SETUP, 'setup', url, *test_dependencies], user='65534:65534',
+                base.id, command=['sh', '-c', SETUP, 'setup', url, sha, *test_dependencies], user='65534:65534',
                 network_mode='bridge', mem_limit='1g', nano_cpus=1_000_000_000,
                 pids_limit=256, cap_drop=['ALL'], security_opt=['no-new-privileges:true'],
                 environment={'HOME': '/tmp', 'PIP_NO_INPUT': '1'}, use_config_proxy=False, init=True,
@@ -186,7 +174,7 @@ def main():
             if args.run_tests:
                 with Sandbox(image=meta['image'], client=dc, max_timeout=300,
                              working_dir='/tmp/repro/source') as sandbox:
-                    result = sandbox.run(['/tmp/repro/venv/bin/python', '-m', 'pytest', '-p', 'no:cacheprovider'], timeout=300)
+                    result = sandbox.run(['/tmp/repro/venv/bin/python', '-m', 'pytest', '-ra', '-p', 'no:cacheprovider'], timeout=300)
                 print(result.output)
                 if result.timed_out or result.exit_code != 0:
                     parser.exit(1, f'Offline pytest failed: exit={result.exit_code}, timeout={result.timed_out}\n')

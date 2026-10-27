@@ -70,3 +70,10 @@ class ResolutionTests(unittest.TestCase):
         client.get.side_effect = [tag_ref, tag_object]
         self.assertEqual(resolve_commit('owner/project', 'v1.0', client), ('b' * 40, 'v1.0'))
         self.assertTrue(client.get.call_args.args[0].endswith('/git/tags/' + 'a' * 40))
+
+    def test_setup_pins_and_checks_git_commit(self):
+        from repro.envbuilder import SETUP
+        self.assertIn('git -C /tmp/repro/source', SETUP)
+        self.assertIn('checkout --detach FETCH_HEAD', SETUP)
+        self.assertIn('rev-parse HEAD', SETUP)
+        self.assertIn('"$2"', SETUP)
