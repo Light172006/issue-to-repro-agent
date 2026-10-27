@@ -16,7 +16,7 @@ def redact(value: Any, secrets: tuple[str, ...] = ()) -> Any:
                 value = value.replace(secret, '[REDACTED]')
         return _TOKEN.sub('[REDACTED]', value)
     if isinstance(value, dict):
-        return {str(k): redact(v, secrets) for k, v in value.items()}
+        return {redact(str(k), secrets): redact(v, secrets) for k, v in value.items()}
     if isinstance(value, list):
         return [redact(v, secrets) for v in value]
     return value

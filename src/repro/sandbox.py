@@ -1,10 +1,10 @@
 """Run one command per isolated, disposable Docker container."""
 from __future__ import annotations
 
-from dataclasses import dataclass
 import os
+from collections.abc import Sequence
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Sequence
 
 
 @dataclass(frozen=True)
@@ -12,6 +12,7 @@ class SandboxResult:
     exit_code: int | None
     output: str
     timed_out: bool
+    original_length: int | None = None
 
 
 def _is_wait_timeout(error: Exception) -> bool:
@@ -59,8 +60,9 @@ def _read_log(container):
     elif total <= 32000:
         data = first + last[-(total - len(first)):]
     else:
-        data = first + b'\n... output truncated ...\n' + last
-    return data.decode('utf-8', errors='replace')
+        note = f'\n... output truncated: {total - len(first) - len(last)} bytes removed from {total} ...\n'
+        data = first + note.encode('ascii') + last
+    return data.decode('utf-8', errors='replace'), total
 
 
 class Sandbox:
@@ -171,8 +173,9 @@ class Sandbox:
                     raise
                 timed_out = True
                 container.kill()
-            output = _read_log(container)
-            return SandboxResult(exit_code=exit_code, output=output, timed_out=timed_out)
+            output, length = _read_log(container)
+            return SandboxResult(exit_code=exit_code, output=output, timed_out=timed_out,
+                                 original_length=length)
         finally:
             container.remove(force=True)
 

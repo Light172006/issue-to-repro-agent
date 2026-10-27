@@ -75,6 +75,10 @@ def run_agent(issue: IssueRecord, toolbox: Any, *, provider: Any, budget: Any,
             if clock() - start >= float(budget.limits['max_seconds']):
                 outcome = 'limit_hit:time'
                 break
+            remaining = float(budget.limits['max_seconds']) - (budget.clock() - budget.started)
+            if remaining <= 0:
+                outcome = 'limit_hit:time'
+                break
             step_started = clock()
             try:
                 reply = call_model(provider=provider, model=model, messages=history,
@@ -107,6 +111,12 @@ def run_agent(issue: IssueRecord, toolbox: Any, *, provider: Any, budget: Any,
             name, raw, _ = calls[0]
             args: dict = {}
             try:
+                if hasattr(toolbox, 'deadline'):
+                    remaining = float(budget.limits['max_seconds']) - (budget.clock() - budget.started)
+                    if remaining <= 0:
+                        outcome = 'limit_hit:time'
+                        break
+                    toolbox.deadline = time.monotonic() + remaining
                 args = json.loads(raw)
                 if not isinstance(args, dict):
                     raise TypeError('Tool arguments must be an object')
@@ -121,7 +131,7 @@ def run_agent(issue: IssueRecord, toolbox: Any, *, provider: Any, budget: Any,
                          'tokens_out': reply.output_tokens, 'cached_tokens': None,
                          'dollars': str(reply.cost_usd), 'tool': name, 'arguments': args,
                          'output': output,
-                         'original_length': None if '... output truncated ...' in output else len(output),
+                         'original_length': result.get('original_length', len(output)),
                          'duration': clock() - step_started,
                          'error': output[:500] if output.startswith('Error:') else None})
             if len(calls) > 1:

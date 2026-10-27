@@ -80,6 +80,17 @@ class SandboxTools:
         self.issue = issue
         self.checker = checker or NaiveSymptomChecker()
         self.timeout = timeout
+        self.deadline: float | None = None
+
+    def _run(self, command: list[str]):
+        import time
+
+        timeout = self.timeout
+        if self.deadline is not None:
+            timeout = min(timeout, self.deadline - time.monotonic())
+        if timeout <= 0:
+            raise ValueError('Run time limit reached')
+        return self.sandbox.run(command, timeout=timeout)
 
     def close(self):
         self.sandbox.close()
@@ -96,11 +107,18 @@ class SandboxTools:
                 if set(args) != {'command'} or not isinstance(args['command'], str) or not args['command'].strip():
                     raise ValueError('command must be a nonempty string')
                 command = args['command']
-                if re.search(r'\b(?:pip\s+install|pip3\s+install|curl|wget)\b', command, re.IGNORECASE):
+                if re.search(r'\b(?:pip(?:3(?:\.\d+)?)?\s+install|'
+                             r'python(?:3(?:\.\d+)?)?\s+-m\s+pip\s+install|'
+                             r'curl|wget)\b', command, re.IGNORECASE):
                     raise ValueError('Packages must already be installed in the environment')
-                result = self.sandbox.run(['sh', '-c', command], timeout=self.timeout)
+                result = self._run(['sh', '-c', command])
             elif name in ('read_file', 'write_file'):
                 path = _path(args.get('path'))
+                if path.startswith('/'):
+                    writable = path == '/work/repro' or path.startswith('/work/repro/')
+                    source = path == '/var/tmp/repro/source' or path.startswith('/var/tmp/repro/source/')
+                    if not writable and (name == 'write_file' or not source):
+                        raise ValueError('Path outside allowed roots')
                 if name == 'write_file':
                     if set(args) != {'path', 'content'} or not isinstance(args['content'], str):
                         raise ValueError('Expected path and string content')
@@ -112,12 +130,14 @@ class SandboxTools:
                 else:
                     if not set(args).issubset({'path', 'start_line', 'end_line'}):
                         raise ValueError('Unknown read_file arguments')
-                    start = args.get('start_line', 1)
-                    end = args.get('end_line', 10000)
+                    start = args.get('start_line')
+                    end = args.get('end_line')
+                    start = 1 if start is None else start
+                    end = 10000 if end is None else end
                     if type(start) is not int or type(end) is not int or start < 1 or end < start:
                         raise ValueError('Invalid line range')
                     command = ['/usr/local/bin/python', '-c', _FILE_OP, 'read', path, str(start), str(end)]
-                result = self.sandbox.run(command, timeout=self.timeout)
+                result = self._run(command)
             elif name in ('run_pytest', 'submit_repro'):
                 key = 'path' if name == 'submit_repro' else 'args'
                 if set(args) != {key}:
@@ -129,23 +149,25 @@ class SandboxTools:
                 if not path.startswith('/work/repro/'):
                     raise ValueError('pytest path must be under /work/repro/')
                 # Resolve symlinks in the container before invoking pytest.
-                check = self.sandbox.run(['/usr/local/bin/python', '-c',
+                check = self._run(['/usr/local/bin/python', '-c',
                     ('import os,sys; p=os.path.realpath(sys.argv[1]); '
-                    "sys.exit(0 if p.startswith('/work/repro/') else 1)"), path], timeout=self.timeout)
+                    "sys.exit(0 if p.startswith('/work/repro/') else 1)"), path])
                 if check.exit_code != 0 or check.timed_out:
                     raise ValueError('Invalid or escaped test path')
-                result = self.sandbox.run(['/var/tmp/repro/venv/bin/python', '-m', 'pytest',
-                                           '-p', 'no:cacheprovider', path], timeout=self.timeout)
+                result = self._run(['/var/tmp/repro/venv/bin/python', '-m', 'pytest',
+                                    '-p', 'no:cacheprovider', path])
                 if name == 'submit_repro' and result.exit_code == 1 and not result.timed_out:
                     match = self.checker.check(self.issue, result.output)
                     if match.verdict in ('exact', 'partial'):
-                        return {'output': result.output, 'outcome': 'candidate_found',
+                        return {'output': result.output, 'original_length': result.original_length,
+                                'outcome': 'candidate_found',
                                 'path': path, 'verdict': match.verdict}
-                    return {'output': result.output + '\nSymptom not matched: ' + match.reason}
+                    return {'output': result.output + '\nSymptom not matched: ' + match.reason,
+                            'original_length': result.original_length}
             else:
                 return {'output': f'Error: unknown tool {name}'}
             return {'output': result.output + ('\nError: command timed out' if result.timed_out else ''),
-                    'exit_code': result.exit_code}
+                    'exit_code': result.exit_code, 'original_length': result.original_length}
         except (ValueError, TypeError, OSError) as exc:
             return {'output': f'Error: {exc}'}
 
@@ -154,7 +176,9 @@ def tool_schemas() -> list[dict]:
     """OpenAI Responses function schemas, with no model-controlled execution."""
     definitions = [
         ('run_shell', 'Run a command in the offline sandbox.', {'command': {'type': 'string'}}),
-        ('read_file', 'Read a file from the repro or library source.', {'path': {'type': 'string'}}),
+        ('read_file', 'Read a file from the repro or library source.',
+         {'path': {'type': 'string'}, 'start_line': {'type': ['integer', 'null']},
+          'end_line': {'type': ['integer', 'null']}}),
         ('write_file', 'Write a file under /work/repro.', {'path': {'type': 'string'}, 'content': {'type': 'string'}}),
         ('run_pytest', 'Run pytest on one file under /work/repro.', {'args': {'type': 'array', 'items': {'type': 'string'}}}),
         ('submit_repro', 'Request harness verification of a failing repro.', {'path': {'type': 'string'}}),

@@ -83,3 +83,28 @@ class SandboxTests(unittest.TestCase):
             self.sandbox.run(['sleep', '5'], timeout=1)
         self.container.kill.assert_not_called()
         self.container.remove.assert_called_once_with(force=True)
+
+
+def test_output_length_reports_untruncated_bytes():
+    client = Mock()
+    container = client.containers.create.return_value
+    container.wait.return_value = {'StatusCode': 0}
+    container.logs.return_value = iter([b'a' * 20000, b'b' * 20000])
+    result = Sandbox(client=client).run(['echo', 'large'])
+    assert result.original_length == 40000
+    assert '8000 bytes removed from 40000' in result.output
+    assert result.output.startswith('a' * 100)
+    assert result.output.endswith('b' * 100)
+
+
+def test_new_environment_location_is_not_hidden_by_tmpfs():
+    client = Mock()
+    container = client.containers.create.return_value
+    container.wait.return_value = {'StatusCode': 0}
+    container.logs.return_value = b'ok'
+    box = Sandbox(client=client, working_dir='/var/tmp/repro/source')
+    box.run(['true'])
+    options = client.containers.create.call_args.kwargs
+    assert '/tmp' in options['tmpfs']
+    assert '/var/tmp' not in options['tmpfs']
+    assert options['read_only'] is True
