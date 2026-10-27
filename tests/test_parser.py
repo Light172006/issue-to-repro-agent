@@ -183,3 +183,32 @@ def test_unrelated_dependency_not_project_version():
 def test_natural_version_and_open_range():
     assert extract_versions('bonsai version used is 0.7.2', 'bonsai')['version'] == '0.7.2'
     assert extract_versions('If I use version 7.1+ it fails')['version'] == '7.1+'
+
+
+def test_markdown_version_labels_and_ipython_traceback(setup):
+    _, model = setup
+    body = '''A report with a serialization error.
+* Python `3.11.3`
+* Version `23.0.0`
+
+```python
+Traceback (most recent call last)
+File /usr/lib/package/dictutils.py:333, in Mapping.__setitem__(self, key, value)
+    self._insert(key, value)
+File /usr/lib/package/dictutils.py:198, in Mapping._insert(self, key, value)
+    root = self.root
+AttributeError: 'Mapping' object has no attribute 'root'
+```
+'''
+    result = parse_issue({'repo': 'example/mapping', 'number': 1, 'body': body}, model)
+    assert result.version == '23.0.0'
+    assert result.python == '3.11.3'
+    assert result.symptom.kind == 'exception'
+    assert result.symptom.type == 'AttributeError'
+    assert result.symptom.signature.endswith('@ dictutils.py:_insert')
+
+
+def test_python_version_not_mistaken_for_library_version():
+    text = '* Python version: 3.11.3\n* Version `2.7.1`'
+    assert extract_versions(text, 'example')['version'] == '2.7.1'
+    assert extract_python(text) == '3.11.3'

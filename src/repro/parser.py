@@ -108,7 +108,8 @@ def extract_versions(text: str, project: str | None = None) -> dict[str, str | N
 
     # Unqualified version statements are weaker; ambiguous candidates are
     # deliberately left to the model. Never pick a different package's pin.
-    patterns = [rf'(?i)(?<!python )\bversion\s*[:=]\s*[`\"]?({VERSION})',
+    patterns = [rf'(?im)^\s*[-*+]?\s*version(?:\s*[:=]\s*|\s+)[`\"]?({VERSION})',
+                rf'(?i)(?<!python )\bversion\s*[:=]\s*[`\"]?({VERSION})',
                 rf'(?i)\b(?:in|use|using)\s+version\s+({VERSION})']
     if not project:
         patterns.extend([rf'(?i)\b[\w.-]+\s*==\s*({VERSION})', rf'(?i)\bv({VERSION})'])
@@ -118,7 +119,7 @@ def extract_versions(text: str, project: str | None = None) -> dict[str, str | N
 
 
 def extract_python(text: str) -> str | None:
-    match = re.search(r'\bpython(?:\s+version)?\s*[:=]?\s*(3\.\d+(?:\.\d+)?)\b', text, re.IGNORECASE)
+    match = re.search(r'\bpython(?:\s+version)?\s*[:=]?\s*[`\"]?(3\.\d+(?:\.\d+)?)\b', text, re.IGNORECASE)
     return match[1] if match else None
 
 
@@ -138,7 +139,7 @@ def normalize_signature(exception: str, message: str, frame: str | None = None) 
 
 def extract_traceback(text: str) -> dict[str, str] | None:
     # Only parse text following a Python traceback; last exception wins in chains.
-    start = text.rfind('Traceback (most recent call last):')
+    start = text.rfind('Traceback (most recent call last)')
     if start < 0:
         return None
     trace = text[start:]
@@ -146,7 +147,12 @@ def extract_traceback(text: str) -> dict[str, str] | None:
     if not errors:
         return None
     error = errors[-1]
-    frames = list(re.finditer(r'^\s*File "([^"\n]+)", line \d+, in ([^\n]+)', trace[:error.start()], re.MULTILINE))
+    section = trace[:error.start()]
+    frames = [(match.start(), match[1], match[2]) for match in
+              re.finditer(r'^\s*File "([^"\n]+)", line \d+, in ([^\n]+)', section, re.MULTILINE)]
+    frames.extend((match.start(), match[1], match[2].split('.')[-1]) for match in
+                  re.finditer(r'^\s*File\s+(.+?\.py):\d+,\s+in\s+([\w.]+)', section, re.MULTILINE))
+    frames.sort(key=lambda frame: frame[0])
     frame = None
     if frames:
         filename = re.split(r'[/\\]', frames[-1][1])[-1]
