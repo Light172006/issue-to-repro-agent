@@ -118,6 +118,10 @@ def run_agent(issue: IssueRecord, toolbox: Any, *, provider: Any, budget: Any,
                              'error': ('No tool call; output token limit reached'
                                        if reply.output_tokens >= MAX_OUTPUT_TOKENS else 'No tool call')})
                 no_call += 1
+                if budget.steps >= int(budget.limits['max_steps']):
+                    reason = 'Step limit reached without a tool call'
+                    outcome = 'limit_hit:steps'
+                    break
                 if no_call > 1:
                     reason = 'Model returned no tool call twice'
                     outcome = 'error'

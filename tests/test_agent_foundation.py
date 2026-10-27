@@ -320,3 +320,24 @@ def test_compaction_keeps_paired_tool_history(tmp_path):
     assert any('untrusted_history_summary' in m.get('content', '') for m in seen[-1])
     assert _valid_messages(seen[-1], allow_tools=True)
     assert seen[-1][0]['role'] == 'system'
+
+
+def test_last_step_without_tool_reports_step_limit(tmp_path):
+    limits = {'max_steps': 2, 'max_run_usd': 1, 'max_seconds': 900,
+              'max_daily_usd': 5, 'max_total_usd': 120}
+    budget = Budget(tmp_path / 'ledger.sqlite', limits)
+    provider = FakeProvider(message=[], output_tokens=2048)
+    toolbox = Toolbox()
+    config = {'fake': {'input_token_ceiling': 1000, 'input_per_million': '1.25',
+                       'output_per_million': '4.25'}}
+    try:
+        result = run_agent(IssueRecord(repo='example/project', issue=1), toolbox,
+                           provider=provider, budget=budget, model_config=config,
+                           model='fake', trace_path=str(tmp_path / 'trace.jsonl'),
+                           tool_schemas=[])
+    finally:
+        budget.close()
+    assert result.outcome == 'limit_hit:steps'
+    assert result.reason == 'Step limit reached without a tool call'
+    assert result.steps == 2
+    assert toolbox.closed
