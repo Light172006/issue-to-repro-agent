@@ -6,5 +6,6 @@
 
 ## Work built during the event
 
-- October 27, 2026 — Step 0: repository and development setup. Python 3.11, pytest, Docker, and Meta API setup confirmed by the project owner. The starting commit is tagged `hackathon-start`.
-- October 27, 2026 — Step 1 (in progress): fake provider and Meta Responses adapter, preflight token accounting, configurable price and limit guard, SQLite reservation ledger, trace metadata, and tests. Real-call verification is pending.
+- October 27, 2026 — Step 0: repository and development setup; starting commit tagged `hackathon-start`.
+- October 27, 2026 — Step 1: model layer, fake provider, preflight accounting, budget ledger and tests. A real Muse call was verified by the project owner. The documented provider-side billing limitation remains.
+- October 27, 2026 — Step 2 (in progress): GitHub issue fetcher, paginated comments, JSON cache and unit tests. Five-repository live test remains pending; linked URLs are listed but their contents are not fetched.

@@ -4,7 +4,7 @@ A Python tool under development that aims to turn GitHub bug reports into verifi
 
 ## Status
 
-Step 0 is complete. Step 1 provides a fake provider and a Meta Responses adapter with preflight budget checks. The real-call test remains to be run. No reproduction or sandbox functionality has been implemented.
+Step 0 and the Step 1 real-call check are complete. Step 2 includes an issue fetcher; its five-repository live test remains pending. No reproduction or sandbox functionality has been implemented.
 
 ## Windows setup and validation
 
@@ -32,3 +32,13 @@ For Meta, the layer sends the same text messages and local function-tool definit
 **Limit of the guarantee:** Preflight and inference are separate requests, and Meta describes the count as a context measurement, not a billing estimate. A server-side change or unexpected billing between them could exceed the reservation. Rates or account charges may also change. Consequently this is a conservative application budget, not a provider-enforced billing guarantee. Set an account-level hard spending cap if Meta offers one and monitor billing. The API timeout is not an absolute cancellation of work already accepted by the server. The time and step guards currently cover model calls, not future tool or sandbox steps.
 
 `config/models.yaml` and `config/limits.yaml` are JSON, a YAML 1.2 subset. The standard Muse prices were checked against [Meta's pricing documentation](https://dev.meta.ai/docs/pricing-rate-limits); confirm them before use. Cached input is charged at the higher uncached rate in this ledger. No prompts, responses, API keys, or tool output are written to the trace.
+
+## Fetch an issue (Step 2)
+
+```powershell
+python -m repro.github https://github.com/encode/httpx/issues/3433
+```
+
+The command saves a JSON record in `.cache/issues/`. Repeat it to use the cache; add `--refresh` to fetch fresh data or `--cache-dir PATH` to choose a different folder. An optional read-only `GITHUB_TOKEN` environment variable increases GitHub API rate limits. Records contain untrusted issue text, labels, all comments and URLs found in text. Linked resources are listed but not downloaded. Treat cached issue text as untrusted, and avoid committing it or sharing it without review.
+
+Step 2's five-repository live test is pending. The main `repro` CLI, parser and sandbox belong to later steps.
