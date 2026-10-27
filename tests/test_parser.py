@@ -163,3 +163,23 @@ def test_structured_request_hook_uses_responses_format():
     assert kwargs['temperature'] == 0 and kwargs['text']['format']['schema'] == SCHEMA
     assert kwargs['reasoning'] == {'effort': 'minimal'}
     assert kwargs['text']['format']['type'] == 'json_schema'
+
+
+def test_project_specific_version_beats_dependency_and_python():
+    text = 'Requirement: bonsai[async]==2.4.1\notherlib==9.1.0\nPython version: 3.11\nBonsai version: 2.4.1'
+    assert extract_versions(text, 'bonsai')['version'] == '2.4.1'
+
+
+def test_project_version_in_json_environment():
+    text = '{"implementation":{"version":"3.12.1"},"bonsai":{"version":"4.5.6"},"dep":{"version":"8.0.0"}}'
+    assert extract_versions(text, 'bonsai')['version'] == '4.5.6'
+
+
+def test_unrelated_dependency_not_project_version():
+    text = 'dependency==8.4.0\nPython version: 3.11'
+    assert extract_versions(text, 'bonsai')['version'] is None
+
+
+def test_natural_version_and_open_range():
+    assert extract_versions('bonsai version used is 0.7.2', 'bonsai')['version'] == '0.7.2'
+    assert extract_versions('If I use version 7.1+ it fails')['version'] == '7.1+'

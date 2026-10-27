@@ -14,7 +14,7 @@ Missing = Literal['version', 'python version', 'os', 'steps', 'expected behavior
                   'actual behavior', 'traceback', 'minimal code', 'input data', 'config']
 MISSING = list(Missing.__args__)
 Kind = Literal['exception', 'wrong_output', 'regression', 'crash', 'performance', 'other']
-VERSION = r'v?\d+\.\d+(?:\.\d+)?(?:[ab]|rc)?\d*'
+VERSION = r'v?\d+\.\d+(?:\.\d+)?(?:[ab]|rc)?\d*\+?'
 
 
 class Symptom(BaseModel):
@@ -84,16 +84,37 @@ def truncate(text: str, limit: int = 24000) -> str:
     return text[:half] + f'\n[... {len(text) - 2 * half} characters removed ...]\n' + text[-half:]
 
 
-def extract_versions(text: str) -> dict[str, str | None]:
-    pair = re.search(rf'worked\s+in\s+({VERSION}).{{0,120}}?broken\s+in\s+({VERSION})', text, re.IGNORECASE | re.DOTALL)
+def extract_versions(text: str, project: str | None = None) -> dict[str, str | None]:
+    pair = re.search(rf'worked\s+in\s+({VERSION}).{{0,120}}?broken\s+in\s+({VERSION})', text,
+                     re.IGNORECASE | re.DOTALL)
     if pair:
         return {'version': pair[2].lstrip('vV'), 'last_good_version': pair[1].lstrip('vV')}
-    for match in re.finditer(rf'(?:\bversion\s*[:=]\s*|\b[\w.-]+\s*==\s*|\bv(?=\d))({VERSION})', text, re.IGNORECASE):
-        prefix = text[max(0, match.start() - 32):match.start()]
-        if re.search(r'\bpython\s*$', prefix, re.IGNORECASE) or match.group(0).lower().startswith('python=='):
-            continue
-        return {'version': match[1].lstrip('vV'), 'last_good_version': None}
-    return {'version': None, 'last_good_version': None}
+
+    # Prefer explicit project-specific labels over unrelated dependency versions.
+    if project:
+        name = re.escape(project)
+        patterns = [
+            rf'(?im)^\s*[-*]?\s*{name}\s+version\s*[:=]\s*[`\"]?({VERSION})',
+            rf'(?is)"{name}"\s*:\s*\{{[^{{}}]{{0,400}}?"version"\s*:\s*"({VERSION})"',
+            rf'(?i)\b{name}(?:\[[\w,-]+\])?\s*==\s*({VERSION})',
+            rf'(?i)\b{name}\s+(?:version(?:\s+used\s+is)?\s*[:=]?\s*)({VERSION})',
+        ]
+        for pattern in patterns:
+            values = list(dict.fromkeys(match.group(1).lstrip('vV') for match in re.finditer(pattern, text)))
+            if len(values) == 1:
+                return {'version': values[0], 'last_good_version': None}
+            if len(values) > 1:
+                return {'version': None, 'last_good_version': None}
+
+    # Unqualified version statements are weaker; ambiguous candidates are
+    # deliberately left to the model. Never pick a different package's pin.
+    patterns = [rf'(?i)(?<!python )\bversion\s*[:=]\s*[`\"]?({VERSION})',
+                rf'(?i)\b(?:in|use|using)\s+version\s+({VERSION})']
+    if not project:
+        patterns.extend([rf'(?i)\b[\w.-]+\s*==\s*({VERSION})', rf'(?i)\bv({VERSION})'])
+    candidates = [m.group(1).lstrip('vV') for pattern in patterns for m in re.finditer(pattern, text)]
+    values = list(dict.fromkeys(candidates))
+    return {'version': values[0] if len(values) == 1 else None, 'last_good_version': None}
 
 
 def extract_python(text: str) -> str | None:
@@ -192,7 +213,7 @@ def parse_issue(issue: dict, llm: ModelClient) -> IssueRecord:
     if not isinstance(repo, str) or not repo or type(number) is not int or number < 1:
         raise ValueError('Fetched issue must have repo and number')
     text = issue_text(issue)
-    versions = extract_versions(text)
+    versions = extract_versions(text, repo.rsplit('/', 1)[-1])
     hints = {**versions, 'python': extract_python(text), 'os': extract_os(text), 'symptom': extract_traceback(text)}
     rule_missing = set()
     if not versions['version']:
