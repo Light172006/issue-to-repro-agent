@@ -41,3 +41,13 @@ def test_interrupted_write_leaves_no_cache(tmp_path, monkeypatch):
     monkeypatch.setattr(gh.os, 'replace', fail)
     with client() as c, pytest.raises(OSError): fetch_issue('https://github.com/a/b/issues/1',tmp_path,client=c)
     assert list(tmp_path.iterdir()) == []
+
+def test_http_error_does_not_leak_token_in_traceback(tmp_path):
+    import traceback
+    from repro.github import IssueFetchError
+    secret='sentinel-github-token'
+    class BrokenClient:
+        def get(self,*args,**kwargs): raise RuntimeError('failure '+secret)
+    with pytest.raises(IssueFetchError) as error:
+        fetch_issue('https://github.com/a/b/issues/1',tmp_path,token=secret,client=BrokenClient())
+    assert secret not in ''.join(traceback.format_exception(error.value))
