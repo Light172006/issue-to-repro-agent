@@ -13,12 +13,12 @@ class ResolutionTests(unittest.TestCase):
         client = Mock()
         missing = Mock(status_code=404)
         ok = Mock(status_code=200)
-        ok.json.return_value = {'sha':'a' * 40}
+        ok.json.return_value = {'object': {'sha':'a' * 40, 'type':'commit'}}
         client.get.side_effect = [missing, ok]
         commit, ref = resolve_commit('owner/project', '1.2.0', client)
         self.assertEqual((commit, ref), ('a' * 40, '1.2.0'))
-        self.assertIn('/commits/refs/tags/v1.2.0', client.get.call_args_list[0].args[0])
-        self.assertIn('/commits/refs/tags/1.2.0', client.get.call_args_list[1].args[0])
+        self.assertIn('/git/ref/tags/v1.2.0', client.get.call_args_list[0].args[0])
+        self.assertIn('/git/ref/tags/1.2.0', client.get.call_args_list[1].args[0])
 
     def test_default_branch_and_sha(self):
         client = Mock()
@@ -60,3 +60,13 @@ class ResolutionTests(unittest.TestCase):
             builder.return_value.build.return_value = metadata
             main()
         docker_client.close.assert_called_once()
+
+    def test_annotated_tag_resolves_to_commit(self):
+        client = Mock()
+        tag_ref = Mock(status_code=200)
+        tag_ref.json.return_value = {'object': {'sha': 'a' * 40, 'type': 'tag'}}
+        tag_object = Mock(status_code=200)
+        tag_object.json.return_value = {'object': {'sha': 'b' * 40, 'type': 'commit'}}
+        client.get.side_effect = [tag_ref, tag_object]
+        self.assertEqual(resolve_commit('owner/project', 'v1.0', client), ('b' * 40, 'v1.0'))
+        self.assertTrue(client.get.call_args.args[0].endswith('/git/tags/' + 'a' * 40))

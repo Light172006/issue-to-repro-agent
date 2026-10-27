@@ -29,19 +29,37 @@ def resolve_commit(repo: str, version: str | None, client) -> tuple[str, str]:
     choices = ([version] if version and SHA.fullmatch(version) else
                ([version, version[1:]] if version.startswith('v') else ['v' + version, version]) if version else ['HEAD'])
     for ref in choices:
-        lookup = ref if ref == 'HEAD' or SHA.fullmatch(ref) else f'refs/tags/{ref}'
-        response = client.get(f'{base}/commits/{lookup}', timeout=20, follow_redirects=False)
-        if response.status_code == 404 and len(choices) > 1:
+        if ref == 'HEAD' or SHA.fullmatch(ref):
+            response = client.get(f'{base}/commits/{ref}', timeout=20, follow_redirects=False)
+            try:
+                response.raise_for_status()
+                sha = response.json()['sha']
+                if not SHA.fullmatch(sha):
+                    raise ValueError('Invalid commit SHA')
+                return sha, ref
+            except Exception as exc:
+                raise BuildError(f'Unable to resolve GitHub ref {ref!r} (HTTP {response.status_code})') from exc
+        response = client.get(f'{base}/git/ref/tags/{ref}', timeout=20, follow_redirects=False)
+        if response.status_code == 404:
             continue
         try:
             response.raise_for_status()
-            data = response.json()
-            sha = data['sha']
-            if not SHA.fullmatch(sha):
-                raise ValueError('Invalid commit SHA in GitHub response')
-            return sha, ref
+            obj = response.json()['object']
+            # Annotated tags point to tag objects; peel them until a commit.
+            for _ in range(10):
+                sha, kind = obj['sha'], obj['type']
+                if not SHA.fullmatch(sha):
+                    raise ValueError('Invalid object SHA')
+                if kind == 'commit':
+                    return sha, ref
+                if kind != 'tag':
+                    raise ValueError('Tag does not point to a commit')
+                response = client.get(f'{base}/git/tags/{sha}', timeout=20, follow_redirects=False)
+                response.raise_for_status()
+                obj = response.json()['object']
+            raise ValueError('Too many nested tags')
         except Exception as exc:
-            raise BuildError(f'Unable to resolve GitHub ref {ref!r} (HTTP {response.status_code})') from exc
+            raise BuildError(f'Unable to resolve GitHub tag {ref!r} (HTTP {response.status_code})') from exc
     raise BuildError('Neither requested tag exists')
 
 
