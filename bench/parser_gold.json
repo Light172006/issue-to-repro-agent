@@ -1,0 +1,135 @@
+{
+  "note": "TODO: label 10 real closed issues from libraries NOT used in the final benchmark. Five clear, three vague, two messy.",
+  "issues": [
+    {
+      "status": "TODO",
+      "category": "clear",
+      "url": "",
+      "expected": {
+        "version": null,
+        "symptom": {
+          "kind": "other",
+          "type": null
+        },
+        "missing": []
+      }
+    },
+    {
+      "status": "TODO",
+      "category": "clear",
+      "url": "",
+      "expected": {
+        "version": null,
+        "symptom": {
+          "kind": "other",
+          "type": null
+        },
+        "missing": []
+      }
+    },
+    {
+      "status": "TODO",
+      "category": "clear",
+      "url": "",
+      "expected": {
+        "version": null,
+        "symptom": {
+          "kind": "other",
+          "type": null
+        },
+        "missing": []
+      }
+    },
+    {
+      "status": "TODO",
+      "category": "clear",
+      "url": "",
+      "expected": {
+        "version": null,
+        "symptom": {
+          "kind": "other",
+          "type": null
+        },
+        "missing": []
+      }
+    },
+    {
+      "status": "TODO",
+      "category": "clear",
+      "url": "",
+      "expected": {
+        "version": null,
+        "symptom": {
+          "kind": "other",
+          "type": null
+        },
+        "missing": []
+      }
+    },
+    {
+      "status": "TODO",
+      "category": "vague",
+      "url": "",
+      "expected": {
+        "version": null,
+        "symptom": {
+          "kind": "other",
+          "type": null
+        },
+        "missing": []
+      }
+    },
+    {
+      "status": "TODO",
+      "category": "vague",
+      "url": "",
+      "expected": {
+        "version": null,
+        "symptom": {
+          "kind": "other",
+          "type": null
+        },
+        "missing": []
+      }
+    },
+    {
+      "status": "TODO",
+      "category": "vague",
+      "url": "",
+      "expected": {
+        "version": null,
+        "symptom": {
+          "kind": "other",
+          "type": null
+        },
+        "missing": []
+      }
+    },
+    {
+      "status": "TODO",
+      "category": "messy",
+      "url": "",
+      "expected": {
+        "version": null,
+        "symptom": {
+          "kind": "other",
+          "type": null
+        },
+        "missing": []
+      }
+    },
+    {
+      "status": "TODO",
+      "category": "messy",
+      "url": "",
+      "expected": {
+        "version": null,
+        "symptom": {
+          "kind": "other",
+          "type": null
+        },
+        "missing": []
+      }
+    }
+  ]
+}

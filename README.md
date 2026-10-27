@@ -69,3 +69,31 @@ If a project needs additional test packages, pass `--test-dependency PACKAGE` on
 The builder fetches and checks out the resolved Git commit in a shallow repository; submodules are not initialized. Build-time pip installs execute repository-controlled build code in a network-enabled, non-root, resource-limited container. No host files or API keys are mounted or passed into it; only use public, permissively licensed repositories. Offline pytest runs use a new read-only image container. Environment builds, image downloads and Docker daemon calls have limits distinct from the future overall run deadline. The three-library live check passed.
 
 Checkpoint evidence and known limitations are recorded in `proof/v0.1.md`. The v0.1 tag is pending; the provider-side billing limitation remains.
+
+
+## Issue parser (Step 5 in progress)
+
+The parser combines deterministic hints with a guarded, structured model request. The GitHub fetcher stores the original reporter identity and refreshes older cache records; only the reporter's first 10 comments are used. The structured-output hook requests temperature zero. Parser trace records contain issue-derived text; review them for secrets before sharing.
+
+Run offline tests:
+
+```powershell
+python -m pip install -e ".[dev]"
+python -m pytest -m "not network and not docker"
+```
+
+Label all 10 entries in `bench/parser_gold.json` using closed issues from libraries excluded from the final benchmark. Set each status to `labelled`, add its URL and expected values, and preserve the 5 clear / 3 vague / 2 messy categories. Then preview the scorer without making calls:
+
+```powershell
+python bench/score_parser.py
+```
+
+The estimate is about $0.05 at 2,000 input and 500 output tokens per issue, with no repairs; actual cost can be higher. To run after reviewing your budget:
+
+```powershell
+$env:META_MODEL_API_KEY = Read-Host "Meta API key"
+python bench/score_parser.py --run
+Remove-Item Env:META_MODEL_API_KEY
+```
+
+The optional network pytest uses the same paid scoring command only when `REPRO_PARSER_GOLD_RUN=1`. Step 5 is incomplete until labelled results meet the specified accuracy threshold. See `docs/parser_notes.md`.

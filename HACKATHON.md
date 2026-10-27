@@ -12,3 +12,5 @@
 - October 27, 2026 — Step 3: disposable resource-limited, non-root Docker sandbox, offline execution, trusted networked setup, unit tests and opt-in Docker integration tests. All Docker integration tests passed on Windows, as reported by the project owner.
 - October 27, 2026 — Step 4: version resolution, containerized environment building, image caching, environment metadata and offline test command. Three-library live checks passed.
 - October 28, 2026 — Switched Step 4 to a commit-verified Git checkout and recorded reported v0.1 evidence; live verification passed on three libraries as reported by the project owner.
+
+- October 28, 2026 — Step 5 (in progress): structured issue parser, deterministic hints, fake-provider tests, and an unlabelled gold-set scoring template. Real gold-set evaluation remains pending.

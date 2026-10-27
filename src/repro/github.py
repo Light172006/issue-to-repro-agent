@@ -58,7 +58,7 @@ def fetch_issue(url: str, cache_dir: str | Path = '.cache/issues', *, token: str
     if not refresh and cache_path.is_file():
         try:
             cached = json.loads(cache_path.read_text(encoding='utf-8'))
-            if (cached.get('schema_version') == 1 and cached.get('repo', '').lower() == f'{owner}/{repo}'.lower()
+            if (cached.get('schema_version') == 2 and cached.get('repo', '').lower() == f'{owner}/{repo}'.lower()
                     and cached.get('number') == number and isinstance(cached.get('comments'), list)):
                 return cached, cache_path
         except (OSError, ValueError, AttributeError):
@@ -84,6 +84,7 @@ def fetch_issue(url: str, cache_dir: str | Path = '.cache/issues', *, token: str
             if not isinstance(batch, list):
                 raise IssueFetchError('Unexpected comments response')
             comments.extend({'id': item.get('id'), 'author': (item.get('user') or {}).get('login'),
+                             'author_type': (item.get('user') or {}).get('type'),
                              'body': item.get('body') or '', 'created_at': item.get('created_at'),
                              'updated_at': item.get('updated_at'), 'url': item.get('html_url')}
                             for item in batch)
@@ -94,7 +95,8 @@ def fetch_issue(url: str, cache_dir: str | Path = '.cache/issues', *, token: str
                 raise IssueFetchError('Comment pagination limit exceeded')
         body = issue.get('body') or ''
         links = sorted(set(LINK.findall('\n'.join([body] + [c['body'] for c in comments]))))
-        result = {'schema_version': 1, 'repo': f'{owner}/{repo}', 'number': number,
+        result = {'schema_version': 2, 'reporter': (issue.get('user') or {}).get('login'),
+                  'reporter_type': (issue.get('user') or {}).get('type'), 'repo': f'{owner}/{repo}', 'number': number,
                   'url': f'https://github.com/{owner}/{repo}/issues/{number}',
                   'title': issue.get('title', ''), 'body': body,
                   'labels': [label['name'] for label in issue.get('labels', []) if isinstance(label, dict) and 'name' in label],
