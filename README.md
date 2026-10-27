@@ -4,7 +4,7 @@ A Python tool under development that aims to turn GitHub bug reports into verifi
 
 ## Status
 
-Step 0 and the Step 1 real-call check are complete. Step 2 includes an issue fetcher and passed its five-repository live test. Step 3 contains the sandbox; real Docker integration tests remain pending. Reproduction is not implemented.
+Step 0 and the Step 1 real-call check are complete. Step 2 includes an issue fetcher and passed its five-repository live test. Step 3 sandbox checks passed on Docker Desktop. Step 4 environment building is in progress. Reproduction is not implemented.
 
 ## Windows setup and validation
 
@@ -55,3 +55,15 @@ Remove-Item Env:REPRO_DOCKER_TESTS
 ```
 
 `Sandbox.run()` creates a fresh non-root container per command with no external networking, CPU, memory and process limits, no mounted host files, a read-only root filesystem and dropped capabilities. `run_setup()` uses a separate network-enabled container for trusted setup commands only; never use it for issue code or pytest. Container filesystem changes are discarded after every command. Persistent environments and output mounts belong to Step 4. Docker daemon and API operations themselves are not covered by the command timeout, and the returned logs are truncated after collection. Docker is not an absolute security boundary.
+
+## Environment builder (Step 4)
+
+Build a public GitHub repository at a tag, then run its suite without network access:
+
+```powershell
+python -m repro.envbuilder pallets/itsdangerous --version 2.1.2 --output-dir environment/itsdangerous --run-tests
+```
+
+If a project needs additional test packages, pass `--test-dependency PACKAGE` once per package. Without `--version`, the default branch HEAD is resolved. `environment.json` records the resolved commit, base image, selected ref, Python version, installed packages and cache status. Images are cached by source commit, base-image ID and requested test dependencies. Pull `python:3.11-slim` before the first run.
+
+The builder downloads GitHub's source archive for the resolved commit rather than a Git clone; projects requiring Git metadata may fail. Build-time pip installs execute repository-controlled build code in a network-enabled, non-root, resource-limited container. No host files or API keys are mounted or passed into it; only use public, permissively licensed repositories. Offline pytest runs use a new read-only image container. Environment builds, image downloads and Docker daemon calls have limits distinct from the future overall run deadline. The three-library live checkpoint is pending.

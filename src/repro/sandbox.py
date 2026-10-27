@@ -42,7 +42,7 @@ class Sandbox:
     """
     def __init__(self, image: str = 'python:3.11-slim', *, client=None,
                  memory: str = '512m', nano_cpus: int = 1_000_000_000,
-                 pids_limit: int = 128, max_timeout: float = 60):
+                 pids_limit: int = 128, max_timeout: float = 60, working_dir: str = '/tmp'):
         if nano_cpus <= 0 or pids_limit <= 0 or max_timeout <= 0:
             raise ValueError('CPU, process and timeout limits must be positive')
         if client is None:
@@ -57,6 +57,9 @@ class Sandbox:
         self.nano_cpus = nano_cpus
         self.pids_limit = pids_limit
         self.max_timeout = max_timeout
+        if not working_dir.startswith('/') or '..' in working_dir.split('/'):
+            raise ValueError('working_dir must be an absolute container path')
+        self.working_dir = working_dir
 
     def close(self):
         if self._owns_client:
@@ -87,8 +90,8 @@ class Sandbox:
             network_mode=network_mode, mem_limit=self.memory,
             nano_cpus=self.nano_cpus, pids_limit=self.pids_limit,
             cap_drop=['ALL'], security_opt=['no-new-privileges:true'],
-            read_only=True, tmpfs={'/tmp': 'rw,noexec,nosuid,size=64m'},
-            working_dir='/tmp', environment={'HOME': '/tmp', 'PYTHONDONTWRITEBYTECODE': '1'},
+            read_only=True, tmpfs={'/var/tmp': 'rw,noexec,nosuid,size=64m'},
+            working_dir=self.working_dir, environment={'HOME': '/var/tmp', 'TMPDIR': '/var/tmp', 'PYTHONDONTWRITEBYTECODE': '1'},
             use_config_proxy=False, init=True,
         )
         timed_out = False
