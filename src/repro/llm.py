@@ -179,6 +179,8 @@ def call_model(*, provider, model: str, messages: list, tools: list | None,
     Real calls use Meta's preflight count plus a safety margin and bounded output.
     The bound assumes stable provider tokenization and documented billing.
     """
+    if model not in model_config:
+        raise ValueError(f'Unknown model: {model!r}')
     cfg = model_config[model]
     for key in ('input_per_million', 'output_per_million'):
         price = Decimal(str(cfg[key]))
