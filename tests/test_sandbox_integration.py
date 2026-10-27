@@ -1,6 +1,9 @@
 """Opt-in: run with REPRO_DOCKER_TESTS=1 and a running Linux Docker daemon."""
 import os
 import unittest
+import pytest
+
+pytestmark = pytest.mark.docker
 from repro.sandbox import Sandbox
 
 @unittest.skipUnless(os.getenv('REPRO_DOCKER_TESTS') == '1', 'set REPRO_DOCKER_TESTS=1')
@@ -27,3 +30,4 @@ class DockerIntegrationTests(unittest.TestCase):
                 'sys.exit(0 if s.connect_ex(("1.1.1.1", 443)) != 0 else 1)')
         result = self.sandbox.run(['python', '-c', code], timeout=10)
         self.assertEqual(result.exit_code, 0, result.output)
+

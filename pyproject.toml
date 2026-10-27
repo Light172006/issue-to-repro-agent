@@ -17,3 +17,5 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["docker: requires a local Docker daemon", "network: requires access to an external service"]
+
