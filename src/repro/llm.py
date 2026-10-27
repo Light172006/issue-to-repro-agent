@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import json
-import os
 import sqlite3
 import time
 from dataclasses import dataclass
@@ -34,7 +33,16 @@ class Budget:
     intentionally not released if a request fails or returns invalid usage.
     """
     def __init__(self, ledger: str | Path, limits: dict, clock: Callable = time.monotonic):
-        self.limits = limits
+        ceilings = {'max_steps': 25, 'max_run_usd': Decimal('1'),
+                    'max_seconds': 900, 'max_daily_usd': Decimal('5'),
+                    'max_total_usd': Decimal('120')}
+        for key, maximum in ceilings.items():
+            value = Decimal(str(limits[key]))
+            if not value.is_finite() or value <= 0 or value > maximum:
+                raise ValueError(f'{key} must be positive and at most {maximum}')
+        if Decimal(str(limits['max_steps'])) != int(limits['max_steps']):
+            raise ValueError('max_steps must be an integer')
+        self.limits = dict(limits)
         self.clock = clock
         self.started = clock()
         self.steps = 0
@@ -46,7 +54,7 @@ class Budget:
     def close(self):
         self.db.close()
 
-    def reserve(self, amount: int) -> None:
+    def reserve(self, amount: int) -> int:
         if self.steps >= int(self.limits['max_steps']):
             raise BudgetExceeded('Step limit reached')
         if self.clock() - self.started >= float(self.limits['max_seconds']):
@@ -62,13 +70,25 @@ class Budget:
                 raise BudgetExceeded('Total budget would be exceeded')
             if daily + amount > dollars(self.limits['max_daily_usd']):
                 raise BudgetExceeded('Daily budget would be exceeded')
-            self.db.execute('INSERT INTO charges VALUES (?, ?)', (day, amount))
+            cursor = self.db.execute('INSERT INTO charges VALUES (?, ?)', (day, amount))
+            reservation_id = cursor.lastrowid
             self.db.commit()
         except Exception:
             self.db.rollback()
             raise
         self.steps += 1
         self.run_charged += amount
+        return reservation_id
+
+    def reconcile(self, reservation_id: int, reserved: int, actual: int) -> None:
+        if actual > reserved or actual < 0:
+            raise UsageUnavailable('Actual charge exceeds reservation')
+        with self.db:
+            cursor = self.db.execute('UPDATE charges SET amount = ? WHERE rowid = ? AND amount = ?',
+                                     (actual, reservation_id, reserved))
+            if cursor.rowcount != 1:
+                raise UsageUnavailable('Reservation could not be reconciled')
+        self.run_charged -= reserved - actual
 
 
 def dollars(value: str | int) -> int:
@@ -101,20 +121,40 @@ class FakeProvider:
 
 
 class OpenAIProvider:
-    def __init__(self, *, base_url: str, api_key: str):
-        if not base_url or not api_key:
-            raise ValueError('Explicit API base URL and API key are required')
+    """Meta Responses adapter: count and generate the same immutable input."""
+    def __init__(self, *, api_key: str, base_url: str = 'https://api.meta.ai/v1'):
+        if base_url.rstrip('/') != 'https://api.meta.ai/v1' or not api_key:
+            raise ValueError('Meta API URL and API key are required')
+        import httpx
         from openai import OpenAI
+        self.http = httpx.Client(base_url=base_url.rstrip('/'),
+                                 headers={'Authorization': f'Bearer {api_key}'}, timeout=30)
         self.client = OpenAI(base_url=base_url, api_key=api_key, max_retries=0)
 
-    def complete(self, *, model, messages, tools, max_output_tokens, timeout):
-        params = dict(model=model, messages=messages, max_tokens=max_output_tokens, timeout=timeout)
+    def count(self, *, model, messages, tools, timeout):
+        body = {'model': model, 'input': messages}
         if tools:
-            params.update(tools=tools, tool_choice='auto', parallel_tool_calls=False)
-        response = self.client.chat.completions.create(**params)
-        if not response.usage or not response.choices:
-            raise UsageUnavailable('Provider did not return usage and a response')
-        return response.choices[0].message, response.usage.prompt_tokens, response.usage.completion_tokens
+            body['tools'] = tools
+        response = self.http.post('/v1/responses/input_tokens', json=body, timeout=timeout)
+        response.raise_for_status()
+        count = response.json()['input_tokens']
+        if type(count) is not int or count < 0:
+            raise UsageUnavailable('Invalid preflight token count')
+        return count
+
+    def complete(self, *, model, messages, tools, max_output_tokens, timeout):
+        params = dict(model=model, input=messages, max_output_tokens=max_output_tokens,
+                      timeout=timeout, store=False)
+        if tools:
+            params.update(tools=tools, parallel_tool_calls=False)
+        response = self.client.responses.create(**params)
+        if response.usage is None:
+            raise UsageUnavailable('Provider did not return usage')
+        return response.output, response.usage.input_tokens, response.usage.output_tokens
+
+    def close(self):
+        self.http.close()
+        self.client.close()
 
 
 def call_model(*, provider, model: str, messages: list, tools: list | None,
@@ -122,22 +162,50 @@ def call_model(*, provider, model: str, messages: list, tools: list | None,
                max_output_tokens: int = 256) -> Reply:
     """Make one call. Reserve its maximum possible charge before sending.
 
-    `input_token_ceiling` must be an independently verified upper bound on the
-    provider's prompt usage, including tool schemas and server-added tokens.
-    Real providers are disabled unless that guarantee is configured.
+    Real calls use Meta's preflight count plus a safety margin and bounded output.
+    The bound assumes stable provider tokenization and documented billing.
     """
     cfg = model_config[model]
-    if max_output_tokens <= 0:
+    for key in ('input_per_million', 'output_per_million'):
+        price = Decimal(str(cfg[key]))
+        if not price.is_finite() or price < 0:
+            raise ValueError('Prices must be finite and non-negative')
+    if type(max_output_tokens) is not int or max_output_tokens <= 0:
         raise ValueError('max_output_tokens must be positive')
-    ceiling = int(cfg['input_token_ceiling'])
+    # Snapshot once: the count and generation must receive identical inputs.
+    messages = json.loads(json.dumps(messages))
+    tools = json.loads(json.dumps(tools)) if tools else None
+    if type(provider) is OpenAIProvider:
+        minimum_prices = {'muse-spark-1.3': (Decimal('1.25'), Decimal('4.25')),
+                          'muse-wonder-1.0': (Decimal('4'), Decimal('20'))}
+        if model not in minimum_prices:
+            raise ValueError('Only configured Meta text models are supported')
+        if (Decimal(str(cfg['input_per_million'])) < minimum_prices[model][0] or
+                Decimal(str(cfg['output_per_million'])) < minimum_prices[model][1]):
+            raise ValueError('Configured price is below the verified standard rate')
+        if not isinstance(messages, list) or any(
+            not isinstance(m, dict) or set(m) != {'role', 'content'} or
+            m['role'] not in ('system', 'developer', 'user', 'assistant') or
+            not isinstance(m['content'], str) for m in messages
+        ):
+            raise ValueError('Only simple text messages are supported')
+        if tools and any(not isinstance(t, dict) or t.get('type') != 'function' for t in tools):
+            raise ValueError('Only local function tools are allowed')
+        if budget.steps >= int(budget.limits['max_steps']):
+            raise BudgetExceeded('Step limit reached')
+        remaining = float(budget.limits['max_seconds']) - (budget.clock() - budget.started)
+        if remaining <= 0:
+            raise BudgetExceeded('Time limit reached')
+        count = provider.count(model=model, messages=messages, tools=tools, timeout=min(30, remaining))
+        ceiling = count + max(128, (count + 99) // 100)
+    elif type(provider) is FakeProvider:
+        ceiling = int(cfg['input_token_ceiling'])
+    else:
+        raise ValueError('Unrecognized provider; no billing contract available')
     if ceiling <= 0:
         raise ValueError('input_token_ceiling must be positive')
-    # No generic OpenAI-compatible API enforces a prompt-token ceiling. Fail
-    # closed for real calls until an enforceable provider contract exists.
-    if isinstance(provider, OpenAIProvider):
-        raise BudgetExceeded('Real provider disabled: prompt-token ceiling cannot be enforced before billing')
     reserve = cost_nanos(ceiling, max_output_tokens, cfg)
-    budget.reserve(reserve)
+    reservation_id = budget.reserve(reserve)
     remaining = float(budget.limits['max_seconds']) - (budget.clock() - budget.started)
     if remaining <= 0:
         raise BudgetExceeded('Time limit reached before request')
@@ -147,8 +215,7 @@ def call_model(*, provider, model: str, messages: list, tools: list | None,
         if type(inp) is not int or type(out) is not int or inp < 0 or out < 0 or inp > ceiling or out > max_output_tokens:
             raise UsageUnavailable('Usage missing, invalid, or exceeds reservation')
         actual = cost_nanos(inp, out, cfg)
-        # Keep reservation in the ledger, including for successful calls: this
-        # is conservative and keeps run, daily and total caps safe across calls.
+        budget.reconcile(reservation_id, reserve, actual)
         result = Reply(message, inp, out, Decimal(actual) / Decimal(1_000_000_000))
         event = {'event': 'model_call', 'model': model, 'input_tokens': inp,
                  'output_tokens': out, 'cost_usd': str(result.cost_usd),

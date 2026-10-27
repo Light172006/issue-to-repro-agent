@@ -56,3 +56,30 @@ class ModelTests(unittest.TestCase):
         finally: other.close()
 
 if __name__ == '__main__': unittest.main()
+
+class MetaPreflightTests(ModelTests):
+    def test_real_adapter_preflights_and_reconciles(self):
+        from repro.llm import OpenAIProvider
+        from unittest.mock import Mock
+        provider = object.__new__(OpenAIProvider)
+        provider.count = Mock(return_value=10)
+        provider.complete = Mock(return_value=('hello', 10, 5))
+        config = {'muse-spark-1.3': {'input_per_million': '1.25', 'output_per_million': '4.25'}}
+        result = call_model(provider=provider, model='muse-spark-1.3', messages=[{'role':'user','content':'hello'}],
+                            tools=None, budget=self.budget, model_config=config,
+                            trace_path=self.root / 'trace.jsonl', max_output_tokens=20)
+        self.assertEqual(provider.count.call_count, 1)
+        self.assertEqual(provider.complete.call_count, 1)
+        self.assertEqual(self.budget.run_charged, 33750)
+        self.assertEqual(str(result.cost_usd), '0.00003375')
+
+    def test_hosted_tools_rejected(self):
+        from repro.llm import OpenAIProvider
+        provider = object.__new__(OpenAIProvider)
+        config = {'muse-spark-1.3': {'input_per_million': '1.25', 'output_per_million': '4.25'}}
+        with self.assertRaises(ValueError):
+            call_model(provider=provider, model='muse-spark-1.3', messages=[], tools=[{'type':'web_search'}],
+                       budget=self.budget, model_config=config, trace_path=self.root / 'trace.jsonl')
+
+    def test_cannot_raise_hard_limit(self):
+        with self.assertRaises(ValueError): Budget(self.root / 'other.sqlite3', {**LIMITS, 'max_run_usd':'2'})
