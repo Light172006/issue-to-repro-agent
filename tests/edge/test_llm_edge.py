@@ -110,3 +110,38 @@ def test_invalid_config_is_rejected(tmp_path, payload):
     from repro.llm import load_config
     path=tmp_path/'limits.yaml'; path.write_text(payload)
     with pytest.raises(ValueError): load_config(path)
+
+
+def test_overrun_records_actual_and_stops_run(tmp_path):
+    import sqlite3
+    b = Budget(tmp_path/'ledger', LIMITS)
+    provider = FakeProvider(input_tokens=100000, output_tokens=5)
+    try:
+        with pytest.raises(UsageUnavailable, match='input=100000/1000'):
+            call_model(provider=provider, model='fake', messages=[], tools=None, budget=b,
+                       model_config=PRICES, trace_path=tmp_path/'trace', max_output_tokens=20)
+        actual = cost_nanos(100000, 5, PRICES['fake'])
+        assert b.run_charged == actual
+        with pytest.raises(BudgetExceeded): b.reserve(1)
+        event = json.loads((tmp_path/'trace').read_text().splitlines()[0])
+        assert event['input_tokens'] == 100000 and event['input_ceiling'] == 1000
+    finally: b.close()
+    with sqlite3.connect(tmp_path/'ledger') as db:
+        assert db.execute('select sum(amount) from charges').fetchone()[0] == actual
+
+
+def test_count_receives_same_json_format_as_generation():
+    import httpx
+    from repro.llm import OpenAIProvider
+    seen=[]
+    def respond(request):
+        seen.append(json.loads(request.content))
+        return httpx.Response(200,json={'input_tokens':42})
+    provider=object.__new__(OpenAIProvider)
+    provider.http=httpx.Client(base_url='https://api.meta.ai/v1',transport=httpx.MockTransport(respond))
+    try:
+        assert provider.count(model='muse-spark-1.3', messages=[], tools=None, timeout=5,
+                              temperature=0, json_schema={'type':'object'}) == 42
+        assert seen[0]['temperature'] == 0
+        assert seen[0]['text']['format']['schema'] == {'type':'object'}
+    finally: provider.http.close()

@@ -62,6 +62,7 @@ class Budget:
         self.started = clock()
         self.steps = 0
         self.run_charged = 0
+        self._breached = False
         self.db = sqlite3.connect(str(ledger), timeout=30, check_same_thread=False)
         self.db.execute('CREATE TABLE IF NOT EXISTS charges (day TEXT NOT NULL, amount INTEGER NOT NULL)')
         self.db.commit()
@@ -72,6 +73,8 @@ class Budget:
 
     @synchronized
     def reserve(self, amount: int) -> int:
+        if self._breached:
+            raise BudgetExceeded('Run stopped after usage exceeded its reservation')
         if self.steps >= int(self.limits['max_steps']):
             raise BudgetExceeded('Step limit reached')
         if self.clock() - self.started >= float(self.limits['max_seconds']):
@@ -107,6 +110,18 @@ class Budget:
             if cursor.rowcount != 1:
                 raise UsageUnavailable('Reservation could not be reconciled')
         self.run_charged -= reserved - actual
+
+    @synchronized
+    def record_overrun(self, reservation_id: int, reserved: int, actual: int) -> None:
+        # Once billed, never record less than known actual usage. Stop this run.
+        charged = max(reserved, actual)
+        with self.db:
+            cursor = self.db.execute('UPDATE charges SET amount = ? WHERE rowid = ? AND amount = ?',
+                                     (charged, reservation_id, reserved))
+            if cursor.rowcount != 1:
+                raise UsageUnavailable('Reservation could not be updated')
+        self.run_charged += charged - reserved
+        self._breached = True
 
 
 def dollars(value: str | int) -> int:
@@ -149,10 +164,15 @@ class OpenAIProvider:
                                  headers={'Authorization': f'Bearer {api_key}'}, timeout=30)
         self.client = OpenAI(base_url=base_url, api_key=api_key, max_retries=0)
 
-    def count(self, *, model, messages, tools, timeout):
+    def count(self, *, model, messages, tools, timeout, temperature=None, json_schema=None):
         body = {'model': model, 'input': messages}
         if tools:
             body['tools'] = tools
+            body['parallel_tool_calls'] = False
+        if temperature is not None:
+            body['temperature'] = temperature
+        if json_schema is not None:
+            body['text'] = {'format': {'type': 'json_schema', 'name': 'issue_record', 'schema': json_schema, 'strict': True}}
         response = self.http.post('responses/input_tokens', json=body, timeout=timeout)
         response.raise_for_status()
         count = response.json()['input_tokens']
@@ -221,7 +241,12 @@ def call_model(*, provider, model: str, messages: list, tools: list | None,
         if remaining <= 0:
             raise BudgetExceeded('Time limit reached')
         try:
-            count = provider.count(model=model, messages=messages, tools=tools, timeout=min(30, remaining))
+            count_options = {}
+            if temperature is not None:
+                count_options['temperature'] = temperature
+            if json_schema is not None:
+                count_options['json_schema'] = json_schema
+            count = provider.count(model=model, messages=messages, tools=tools, timeout=min(30, remaining), **count_options)
         except Exception:
             raise ProviderError('Provider token-count request failed') from None
         ceiling = count + max(128, (count + 99) // 100)
@@ -247,9 +272,18 @@ def call_model(*, provider, model: str, messages: list, tools: list | None,
                                                   max_output_tokens=max_output_tokens, timeout=remaining, **options)
         except Exception:
             raise ProviderError('Provider generation request failed; reservation retained') from None
-        if type(inp) is not int or type(out) is not int or inp < 0 or out < 0 or inp > ceiling or out > max_output_tokens:
-            raise UsageUnavailable('Usage missing, invalid, or exceeds reservation')
+        if type(inp) is not int or type(out) is not int or inp < 0 or out < 0:
+            raise UsageUnavailable('Provider returned missing or invalid token usage; reservation retained')
         actual = cost_nanos(inp, out, cfg)
+        if inp > ceiling or out > max_output_tokens or actual > reserve:
+            budget.record_overrun(reservation_id, reserve, actual)
+            with open(trace_path, 'a', encoding='utf-8') as f:
+                f.write(json.dumps({'event': 'usage_exceeded_reservation', 'input_tokens': inp,
+                                    'input_ceiling': ceiling, 'output_tokens': out,
+                                    'output_ceiling': max_output_tokens,
+                                    'actual_cost_usd': str(Decimal(actual) / Decimal(1_000_000_000))}) + '\n')
+            raise UsageUnavailable(f'Usage exceeded reservation: input={inp}/{ceiling}, '
+                                   f'output={out}/{max_output_tokens}; run stopped')
         budget.reconcile(reservation_id, reserve, actual)
         result = Reply(message, inp, out, Decimal(actual) / Decimal(1_000_000_000))
         event = {'event': 'model_call', 'model': model, 'input_tokens': inp,
