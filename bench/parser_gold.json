@@ -1,135 +1,331 @@
 {
-  "note": "TODO: label 10 real closed issues from libraries NOT used in the final benchmark. Five clear, three vague, two messy.",
+  "note": "Parser tuning only: these libraries are excluded from the final benchmark. Labels use only issue bodies and original reporter comments, not parser output or maintainer replies.",
   "issues": [
     {
-      "status": "TODO",
+      "status": "labelled",
+      "url": "https://github.com/pallets/click/issues/1884",
+      "repo": "pallets/click",
+      "issue": 1884,
       "category": "clear",
-      "url": "",
+      "snapshot": "bench/parser_gold_snapshots/pallets--click--1884.json",
       "expected": {
-        "version": null,
+        "version": "8.0.0",
+        "last_good_version": "7.1.2",
+        "python": "3.9",
+        "os": null,
         "symptom": {
-          "kind": "other",
+          "kind": "exception",
+          "type": "RuntimeError"
+        },
+        "missing": [
+          "os"
+        ]
+      },
+      "evidence": {
+        "version": "Click version: 8.0.0",
+        "last_good_version": "working with click 7.1.2",
+        "python": "Python version: 3.9",
+        "symptom_kind": "RuntimeError: 'cli' is not installed.",
+        "symptom_type": "RuntimeError: 'cli' is not installed.",
+        "missing": {
+          "os": "absent from issue"
+        }
+      },
+      "why_chosen": "Version-option regression with a chained traceback and reproducible steps."
+    },
+    {
+      "status": "labelled",
+      "url": "https://github.com/pallets/flask/issues/5774",
+      "repo": "pallets/flask",
+      "issue": 5774,
+      "category": "clear",
+      "snapshot": "bench/parser_gold_snapshots/pallets--flask--5774.json",
+      "expected": {
+        "version": "3.1.1",
+        "last_good_version": "2.1.0",
+        "python": "3.12.11",
+        "os": "darwin",
+        "symptom": {
+          "kind": "regression",
           "type": null
         },
         "missing": []
-      }
+      },
+      "evidence": {
+        "version": "Flask version: 3.1.1",
+        "last_good_version": "no issue with e.g. flask 2.1.0",
+        "python": "Python version: 3.12.11",
+        "os": "platform darwin",
+        "symptom_kind": "no issue with e.g. flask 2.1.0",
+        "missing": {}
+      },
+      "why_chosen": "Async streaming regression with a complete example and old-version comparison."
     },
     {
-      "status": "TODO",
+      "status": "labelled",
+      "url": "https://github.com/psf/requests/issues/6643",
+      "repo": "psf/requests",
+      "issue": 6643,
       "category": "clear",
-      "url": "",
+      "snapshot": "bench/parser_gold_snapshots/psf--requests--6643.json",
       "expected": {
-        "version": null,
+        "version": "2.31.0",
+        "last_good_version": null,
+        "python": "3.11.8",
+        "os": "Linux",
         "symptom": {
-          "kind": "other",
-          "type": null
+          "kind": "exception",
+          "type": "LocationParseError"
         },
         "missing": []
-      }
+      },
+      "evidence": {
+        "version": "\"version\": \"2.31.0\"",
+        "python": "\"version\": \"3.11.8\"",
+        "os": "\"system\": \"Linux\"",
+        "symptom_kind": "urllib3.exceptions.LocationParseError",
+        "symptom_type": "urllib3.exceptions.LocationParseError",
+        "missing": {}
+      },
+      "why_chosen": "Malformed URL causes a chained exception with a small reproducer."
     },
     {
-      "status": "TODO",
+      "status": "labelled",
+      "url": "https://github.com/pallets/flask/issues/5448",
+      "repo": "pallets/flask",
+      "issue": 5448,
       "category": "clear",
-      "url": "",
+      "snapshot": "bench/parser_gold_snapshots/pallets--flask--5448.json",
       "expected": {
-        "version": null,
+        "version": "3.0.2",
+        "last_good_version": null,
+        "python": "3.x",
+        "os": "RHEL9",
         "symptom": {
-          "kind": "other",
+          "kind": "exception",
+          "type": "UnsupportedDigestmodError"
+        },
+        "missing": [
+          "minimal code"
+        ]
+      },
+      "evidence": {
+        "version": "Flask version: 3.0.2",
+        "python": "Python version: 3.x",
+        "os": "RHEL9 FIPS Enabled",
+        "symptom_kind": "_hashlib.UnsupportedDigestmodError",
+        "symptom_type": "_hashlib.UnsupportedDigestmodError",
+        "missing": {
+          "minimal code": "absent from issue"
+        }
+      },
+      "why_chosen": "FIPS-enabled environment triggers a digest exception and traceback."
+    },
+    {
+      "status": "labelled",
+      "url": "https://github.com/encode/httpx/issues/3433",
+      "repo": "encode/httpx",
+      "issue": 3433,
+      "category": "clear",
+      "snapshot": "bench/parser_gold_snapshots/encode--httpx--3433.json",
+      "expected": {
+        "version": "0.28.0",
+        "last_good_version": null,
+        "python": null,
+        "os": null,
+        "symptom": {
+          "kind": "wrong_output",
           "type": null
         },
-        "missing": []
-      }
+        "missing": [
+          "python version",
+          "os",
+          "traceback"
+        ]
+      },
+      "evidence": {
+        "version": "version 0.28.0",
+        "symptom_kind": "query params are never merged",
+        "missing": {
+          "python version": "absent from issue",
+          "os": "absent from issue",
+          "traceback": "absent from issue"
+        }
+      },
+      "why_chosen": "A precise wrong URL output without a traceback."
     },
     {
-      "status": "TODO",
-      "category": "clear",
-      "url": "",
-      "expected": {
-        "version": null,
-        "symptom": {
-          "kind": "other",
-          "type": null
-        },
-        "missing": []
-      }
-    },
-    {
-      "status": "TODO",
-      "category": "clear",
-      "url": "",
-      "expected": {
-        "version": null,
-        "symptom": {
-          "kind": "other",
-          "type": null
-        },
-        "missing": []
-      }
-    },
-    {
-      "status": "TODO",
+      "status": "labelled",
+      "url": "https://github.com/pallets/flask/issues/5489",
+      "repo": "pallets/flask",
+      "issue": 5489,
       "category": "vague",
-      "url": "",
+      "snapshot": "bench/parser_gold_snapshots/pallets--flask--5489.json",
       "expected": {
-        "version": null,
+        "version": "2.3.2",
+        "last_good_version": null,
+        "python": "3.8.14",
+        "os": null,
         "symptom": {
-          "kind": "other",
+          "kind": "wrong_output",
           "type": null
         },
-        "missing": []
-      }
+        "missing": [
+          "os",
+          "traceback",
+          "minimal code",
+          "config"
+        ]
+      },
+      "evidence": {
+        "version": "Flask version: 2.3.2",
+        "python": "Python version: 3.8.14",
+        "symptom_kind": "flask think that this is the same path as /admin",
+        "missing": {
+          "os": "absent from issue",
+          "traceback": "absent from issue",
+          "minimal code": "absent from issue",
+          "config": "absent from issue"
+        }
+      },
+      "why_chosen": "Proxy and slash handling is described without runnable code or proxy configuration."
     },
     {
-      "status": "TODO",
+      "status": "labelled",
+      "url": "https://github.com/pallets/click/issues/2615",
+      "repo": "pallets/click",
+      "issue": 2615,
       "category": "vague",
-      "url": "",
+      "snapshot": "bench/parser_gold_snapshots/pallets--click--2615.json",
       "expected": {
-        "version": null,
+        "version": "8.1.7",
+        "last_good_version": null,
+        "python": "3.10",
+        "os": null,
         "symptom": {
-          "kind": "other",
+          "kind": "crash",
           "type": null
         },
-        "missing": []
-      }
+        "missing": [
+          "os",
+          "traceback",
+          "minimal code",
+          "input data"
+        ]
+      },
+      "evidence": {
+        "version": "Click version: 8.1.7",
+        "python": "Python version: 3.10",
+        "symptom_kind": "script unexpectedly crashes",
+        "missing": {
+          "os": "absent from issue",
+          "traceback": "absent from issue",
+          "minimal code": "absent from issue",
+          "input data": "absent from issue"
+        }
+      },
+      "why_chosen": "Reports a crash condition but omits an inline reproducible program and traceback."
     },
     {
-      "status": "TODO",
+      "status": "labelled",
+      "url": "https://github.com/Textualize/rich/issues/3708",
+      "repo": "Textualize/rich",
+      "issue": 3708,
       "category": "vague",
-      "url": "",
+      "snapshot": "bench/parser_gold_snapshots/textualize--rich--3708.json",
       "expected": {
         "version": null,
+        "last_good_version": null,
+        "python": "3.13.3",
+        "os": null,
         "symptom": {
-          "kind": "other",
+          "kind": "performance",
           "type": null
         },
-        "missing": []
-      }
+        "missing": [
+          "version",
+          "os",
+          "traceback"
+        ]
+      },
+      "evidence": {
+        "python": "Python 3.13.3",
+        "symptom_kind": "infinite loop eating all resources until killed",
+        "missing": {
+          "version": "absent from issue",
+          "os": "absent from issue",
+          "traceback": "absent from issue"
+        }
+      },
+      "why_chosen": "Infinite-loop resource consumption with no exact Rich version or traceback."
     },
     {
-      "status": "TODO",
+      "status": "labelled",
+      "url": "https://github.com/pallets/click/issues/2118",
+      "repo": "pallets/click",
+      "issue": 2118,
       "category": "messy",
-      "url": "",
+      "snapshot": "bench/parser_gold_snapshots/pallets--click--2118.json",
       "expected": {
-        "version": null,
+        "version": "7.1+",
+        "last_good_version": "7.0",
+        "python": null,
+        "os": "Windows",
         "symptom": {
-          "kind": "other",
-          "type": null
+          "kind": "exception",
+          "type": "IOError"
         },
-        "missing": []
-      }
+        "missing": [
+          "python version"
+        ]
+      },
+      "evidence": {
+        "version": "version 7.1+",
+        "last_good_version": "7.0 , it's ok",
+        "os": "demo on Windows",
+        "symptom_kind": "IOError: [Errno 0] Error",
+        "symptom_type": "IOError: [Errno 0] Error",
+        "missing": {
+          "python version": "absent from issue"
+        }
+      },
+      "why_chosen": "Long Windows traceback and mixed-language code with a version range."
     },
     {
-      "status": "TODO",
+      "status": "labelled",
+      "url": "https://github.com/encode/httpx/issues/2337",
+      "repo": "encode/httpx",
+      "issue": 2337,
       "category": "messy",
-      "url": "",
+      "snapshot": "bench/parser_gold_snapshots/encode--httpx--2337.json",
       "expected": {
-        "version": null,
+        "version": "0.19.0",
+        "last_good_version": null,
+        "python": null,
+        "os": null,
         "symptom": {
-          "kind": "other",
-          "type": null
+          "kind": "exception",
+          "type": "ClosedResourceError"
         },
-        "missing": []
-      }
+        "missing": [
+          "python version",
+          "os",
+          "minimal code",
+          "input data"
+        ]
+      },
+      "evidence": {
+        "version": "httpx version used is 0.19.0",
+        "symptom_kind": "anyio.ClosedResourceError",
+        "symptom_type": "anyio.ClosedResourceError",
+        "missing": {
+          "python version": "absent from issue",
+          "os": "absent from issue",
+          "minimal code": "absent from issue",
+          "input data": "absent from issue"
+        }
+      },
+      "why_chosen": "Long partial traceback and incomplete asynchronous code."
     }
   ]
 }

@@ -8,7 +8,6 @@ import sys
 from decimal import Decimal
 from pathlib import Path
 
-from repro.github import fetch_issue
 from repro.llm import Budget, OpenAIProvider, load_config
 from repro.parser import MISSING, ModelClient, parse_issue
 
@@ -39,6 +38,16 @@ def main() -> int:
 
         print('Gold set incomplete: label all 10 issues before running. No API calls made.')
         return 2
+    snapshots = []
+    for item in entries:
+        try:
+            issue = json.loads(Path(item['snapshot']).read_text(encoding='utf-8'))
+            if issue.get('repo', '').lower() != item['repo'].lower() or issue.get('number') != item['issue']:
+                raise ValueError('Snapshot identity mismatch')
+            snapshots.append(issue)
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            print(f'Invalid or missing snapshot for {item.get("url")}: {exc}', file=sys.stderr)
+            return 2
     print('Estimate: about $0.05 for 10 calls at 2,000 input and 500 output tokens each; retries and larger inputs cost more.')
     if not args.run:
         print('Pass --run to allow real API calls. No API calls made.')
@@ -54,8 +63,7 @@ def main() -> int:
     version_correct = symptom_correct = both_correct = vague_correct = vague_count = 0
     print('issue | version | symptom | both | vague missing')
     try:
-        for item in entries:
-            issue, _ = fetch_issue(item['url'], token=os.getenv('GITHUB_TOKEN'))
+        for item, issue in zip(entries, snapshots, strict=True):
             budget = Budget('budget.sqlite3', limits)
             try:
                 client = ModelClient(provider, budget, config, 'trace.jsonl', model=selected)

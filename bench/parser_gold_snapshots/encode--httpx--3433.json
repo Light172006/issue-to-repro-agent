@@ -1,0 +1,24 @@
+{
+  "schema_version": 2,
+  "repo": "encode/httpx",
+  "number": 3433,
+  "reporter": "yanyongyu",
+  "reporter_type": "User",
+  "body": "In version 0.28.0, query params are never merged.\r\n\r\n```python\r\nimport httpx\r\n\r\nclient = httpx.Client()\r\nrequest = client.build_request(\r\n    \"GET\", \"https://httpbin.org/get?param=default\", params={\"foo\": \"bar\"}\r\n)\r\nprint(request.url)  # This will be `https://httpbin.org/get?foo=bar`\r\n```\r\n\r\nThe query string in the request url will be ignored. It seems this is caused by the pr #3364. Params are replaced instead of merged when parsing. https://github.com/encode/httpx/blob/15e21e9ea3cad4f06e22a7e704aabefdf43d2e29/httpx/_urlparse.py#L301\r\n\r\nRelated discussion https://github.com/encode/httpx/discussions/3428\r\n",
+  "comments": [
+    {
+      "author": "yanyongyu",
+      "author_type": "User",
+      "body": "I know providing both params and query in url is a bad practice. But this can be counterintuitive in some situations like:\r\n\r\n```python\r\nimport httpx\r\n\r\nclient = httpx.Client(params={\"foo\": \"bar\"})\r\nrequest = client.build_request(\r\n    \"GET\", \"https://httpbin.org/get?param=default\"\r\n)\r\nprint(request.url)  # This will be `https://httpbin.org/get?foo=bar`\r\n```\r\n\r\nThe params are provided in the client options. This will also replace the query in the url.\r\n\r\nMay be a warning can be raised when the replaced query is not empty?\r\n\r\nhttps://github.com/encode/httpx/blob/15e21e9ea3cad4f06e22a7e704aabefdf43d2e29/httpx/_urlparse.py#L301",
+      "created_at": "2024-12-03T12:29:39Z",
+      "updated_at": "2024-12-03T12:29:39Z"
+    },
+    {
+      "author": "yanyongyu",
+      "author_type": "User",
+      "body": "Currently, as a workaround, we merge all the params by ourselves before passing to httpx. The code is clearer logically :joy: .",
+      "created_at": "2024-12-03T12:41:53Z",
+      "updated_at": "2024-12-03T12:41:53Z"
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "schema_version": 2,
+  "repo": "pallets/flask",
+  "number": 5489,
+  "reporter": "Kotifnat",
+  "reporter_type": "User",
+  "body": "<!--\r\nThis issue tracker is a tool to address bugs in Flask itself. Please use\r\nGitHub Discussions or the Pallets Discord for questions about your own code.\r\n\r\nReplace this comment with a clear outline of what the bug is.\r\n-->\r\n\r\n<!--\r\nDescribe how to replicate the bug.\r\n\r\nInclude a minimal reproducible example that demonstrates the bug.\r\nInclude the full traceback if there was an exception.\r\n-->\r\n\r\n<!--\r\nDescribe the expected behavior that should have happened but didn't.\r\n-->\r\n\r\nEnvironment:\r\n\r\n- Python version: 3.8.14\r\n- Flask version: 2.3.2\r\n\r\nI have a paths with prefix /admin. if you follow a path containing this prefix, proxy  before app see this and asks mTLS auth. But when i follow this path with multiple slashes at the beginning (ex //admin, ///admin) proxy ignore this, but flask think that this is the same path as /admin and return values, client must not see. I think this should not work like this\r\n",
+  "comments": []
+}

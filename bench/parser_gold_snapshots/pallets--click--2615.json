@@ -1,0 +1,9 @@
+{
+  "schema_version": 2,
+  "repo": "pallets/click",
+  "number": 2615,
+  "reporter": "prenc",
+  "reporter_type": "User",
+  "body": "I've developed a multi-command program using the Click library, which is executed with the command `my_program test`. The script unexpectedly crashes when both of the following conditions are met:\r\n\r\n1. The script contains the line torch.compile(model).\r\n2. One of the subcommands is named tokenize.\r\n\r\nIf I either remove the torch.compile(model) line or rename the tokenize subcommand to something else (e.g., tokenize_), the script runs without any issues.\r\n\r\nEnvironment:\r\n\r\n- Python version: 3.10\r\n- Click version: 8.1.7\r\n- Pytorch version: 2.0.1\r\n\r\nThe code to fully reproduce the error: https://github.com/prenc/click_bug_demo",
+  "comments": []
+}
