@@ -7,6 +7,7 @@ import json
 import os
 import re
 import tempfile
+from contextlib import closing
 from pathlib import Path
 
 from repro.github import parse_issue_url
@@ -162,7 +163,7 @@ def main():
     if os.getenv('GITHUB_TOKEN'):
         headers['Authorization'] = 'Bearer ' + os.environ['GITHUB_TOKEN']
     try:
-        with docker.from_env() as dc, httpx.Client(headers=headers, timeout=20) as hc:
+        with closing(docker.from_env()) as dc, httpx.Client(headers=headers, timeout=20) as hc:
             meta = EnvironmentBuilder(dc, hc).build(args.repo, args.version, args.output_dir, test_dependencies=args.test_dependency)
             if args.run_tests:
                 with Sandbox(image=meta['image'], client=dc, max_timeout=300,

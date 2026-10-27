@@ -2,7 +2,9 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
+import sys
+import types
 
 from repro.envbuilder import BuildError, _write_json, resolve_commit
 
@@ -41,3 +43,20 @@ class ResolutionTests(unittest.TestCase):
             path = Path(tmp) / 'new' / 'environment.json'
             _write_json(path, {'commit': 'a' * 40})
             self.assertEqual(json.loads(path.read_text())['commit'], 'a' * 40)
+
+    def test_cli_closes_docker_without_context_manager(self):
+        from repro.envbuilder import main
+        docker_client = Mock(spec=['close'])
+        from unittest.mock import MagicMock
+        http_client = MagicMock()
+        http_client.__enter__ = Mock(return_value=http_client)
+        http_client.__exit__ = Mock(return_value=False)
+        docker_module = types.SimpleNamespace(from_env=Mock(return_value=docker_client))
+        httpx_module = types.SimpleNamespace(Client=Mock(return_value=http_client))
+        metadata = {'image': 'example', 'commit': 'a' * 40, 'cache_hit': False}
+        with patch.dict(sys.modules, {'docker': docker_module, 'httpx': httpx_module}), \
+             patch('sys.argv', ['envbuilder', 'owner/repo']), \
+             patch('repro.envbuilder.EnvironmentBuilder') as builder:
+            builder.return_value.build.return_value = metadata
+            main()
+        docker_client.close.assert_called_once()
