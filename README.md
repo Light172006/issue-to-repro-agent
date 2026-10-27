@@ -4,7 +4,7 @@ A Python tool under development that aims to turn GitHub bug reports into verifi
 
 ## Status
 
-Step 0 and the Step 1 real-call check are complete. Step 2 includes an issue fetcher and passed its five-repository live test. Step 3 sandbox checks passed on Docker Desktop. Step 4 environment building is in progress. Reproduction is not implemented.
+Step 0 and the Step 1 real-call check are complete. Step 2 includes an issue fetcher and passed its five-repository live test. Step 3 sandbox checks passed on Docker Desktop. Step 4 passed live Git-checkout tests for three libraries. Reproduction is not implemented.
 
 ## Windows setup and validation
 
@@ -66,6 +66,6 @@ python -m repro.envbuilder pallets/itsdangerous --version 2.1.2 --output-dir env
 
 If a project needs additional test packages, pass `--test-dependency PACKAGE` once per package. Without `--version`, the default branch HEAD is resolved. `environment.json` records the resolved commit, base image, selected ref, Python version, installed packages and cache status. Images are cached by source commit, base-image ID and requested test dependencies. Pull `python:3.11` before the first run; the full image provides Git.
 
-The builder fetches and checks out the resolved Git commit in a shallow repository; submodules are not initialized. Build-time pip installs execute repository-controlled build code in a network-enabled, non-root, resource-limited container. No host files or API keys are mounted or passed into it; only use public, permissively licensed repositories. Offline pytest runs use a new read-only image container. Environment builds, image downloads and Docker daemon calls have limits distinct from the future overall run deadline. The three-library live checkpoint is pending.
+The builder fetches and checks out the resolved Git commit in a shallow repository; submodules are not initialized. Build-time pip installs execute repository-controlled build code in a network-enabled, non-root, resource-limited container. No host files or API keys are mounted or passed into it; only use public, permissively licensed repositories. Offline pytest runs use a new read-only image container. Environment builds, image downloads and Docker daemon calls have limits distinct from the future overall run deadline. The three-library live check passed.
 
-Checkpoint evidence and known limitations are recorded in `proof/v0.1.md`. The new Git checkout path requires live Docker verification before the v0.1 tag.
+Checkpoint evidence and known limitations are recorded in `proof/v0.1.md`. The v0.1 tag is pending; the provider-side billing limitation remains.
