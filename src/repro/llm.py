@@ -4,6 +4,8 @@ from __future__ import annotations
 import json
 import sqlite3
 import time
+import threading
+from functools import wraps
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
@@ -26,8 +28,16 @@ class Reply:
     cost_usd: Decimal
 
 
+def synchronized(method):
+    @wraps(method)
+    def wrapper(self, *args, **kwargs):
+        with self._lock:
+            return method(self, *args, **kwargs)
+    return wrapper
+
+
 class Budget:
-    """Single-threaded run state plus a shared SQLite reservation ledger.
+    """Thread-safe run state plus a shared SQLite reservation ledger.
 
     All monetary values in the ledger are integer nanodollars. Reservations are
     intentionally not released if a request fails or returns invalid usage.
@@ -42,18 +52,21 @@ class Budget:
                 raise ValueError(f'{key} must be positive and at most {maximum}')
         if Decimal(str(limits['max_steps'])) != int(limits['max_steps']):
             raise ValueError('max_steps must be an integer')
+        self._lock = threading.RLock()
         self.limits = dict(limits)
         self.clock = clock
         self.started = clock()
         self.steps = 0
         self.run_charged = 0
-        self.db = sqlite3.connect(str(ledger), timeout=30)
+        self.db = sqlite3.connect(str(ledger), timeout=30, check_same_thread=False)
         self.db.execute('CREATE TABLE IF NOT EXISTS charges (day TEXT NOT NULL, amount INTEGER NOT NULL)')
         self.db.commit()
 
+    @synchronized
     def close(self):
         self.db.close()
 
+    @synchronized
     def reserve(self, amount: int) -> int:
         if self.steps >= int(self.limits['max_steps']):
             raise BudgetExceeded('Step limit reached')
@@ -80,6 +93,7 @@ class Budget:
         self.run_charged += amount
         return reservation_id
 
+    @synchronized
     def reconcile(self, reservation_id: int, reserved: int, actual: int) -> None:
         if actual > reserved or actual < 0:
             raise UsageUnavailable('Actual charge exceeds reservation')
@@ -232,3 +246,4 @@ def call_model(*, provider, model: str, messages: list, tools: list | None,
             f.write(json.dumps({'event': 'model_call_failed', 'model': model,
                                 'step': budget.steps, 'reservation_retained': True}) + '\n')
         raise
+
