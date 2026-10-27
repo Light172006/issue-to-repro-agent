@@ -1,0 +1,152 @@
+[
+  {
+    "name": "standard_exact",
+    "kind": "exception",
+    "type": "ValueError",
+    "signature": "ValueError: bad item <n> @ logic.py:load",
+    "output": "Traceback (most recent call last):\n  File \"/app/logic.py\", line 2, in load\nValueError: bad item 42\n",
+    "verdict": "exact",
+    "expected": null,
+    "actual": null
+  },
+  {
+    "name": "different_message",
+    "kind": "exception",
+    "type": "ValueError",
+    "signature": "ValueError: bad item <n> @ logic.py:load",
+    "output": "Traceback (most recent call last):\n  File \"/app/logic.py\", line 2, in load\nValueError: invalid value 42\n",
+    "verdict": "partial",
+    "expected": null,
+    "actual": null
+  },
+  {
+    "name": "different_frame",
+    "kind": "exception",
+    "type": "ValueError",
+    "signature": "ValueError: bad item <n> @ logic.py:load",
+    "output": "Traceback (most recent call last):\n  File \"/app/logic.py\", line 2, in save\nValueError: bad item 42\n",
+    "verdict": "partial",
+    "expected": null,
+    "actual": null
+  },
+  {
+    "name": "wrong_exception",
+    "kind": "exception",
+    "type": "ValueError",
+    "signature": "ValueError: bad item <n> @ logic.py:load",
+    "output": "Traceback (most recent call last):\n  File \"/app/logic.py\", line 2, in load\nTypeError: bad item 42\n",
+    "verdict": "none",
+    "expected": null,
+    "actual": null
+  },
+  {
+    "name": "missing_frame",
+    "kind": "exception",
+    "type": "ValueError",
+    "signature": "ValueError: bad item <n> @ logic.py:load",
+    "output": "Traceback (most recent call last):\nValueError: bad item 42\n",
+    "verdict": "partial",
+    "expected": null,
+    "actual": null
+  },
+  {
+    "name": "no_exception",
+    "kind": "exception",
+    "type": "ValueError",
+    "signature": "ValueError: bad item <n> @ logic.py:load",
+    "output": "all tests passed\n",
+    "verdict": "none",
+    "expected": null,
+    "actual": null
+  },
+  {
+    "name": "chained_final",
+    "kind": "exception",
+    "type": "ValueError",
+    "signature": "ValueError: final <n> @ main.py:handle",
+    "output": "Traceback (most recent call last):\n  File \"/app/a.py\", line 1, in first\nKeyError: 1\n\nDuring handling of the above exception, another exception occurred:\n\nTraceback (most recent call last):\n  File \"/app/main.py\", line 8, in handle\nValueError: final 44\n",
+    "verdict": "exact",
+    "expected": null,
+    "actual": null
+  },
+  {
+    "name": "chained_old_not_match",
+    "kind": "exception",
+    "type": "KeyError",
+    "signature": "KeyError: <n> @ a.py:first",
+    "output": "Traceback (most recent call last):\n  File \"/app/a.py\", line 1, in first\nKeyError: 1\n\nDuring handling of the above exception, another exception occurred:\n\nTraceback (most recent call last):\n  File \"/app/main.py\", line 8, in handle\nValueError: final 44\n",
+    "verdict": "none",
+    "expected": null,
+    "actual": null
+  },
+  {
+    "name": "paths_and_addresses",
+    "kind": "exception",
+    "type": "RuntimeError",
+    "signature": "RuntimeError: failed <path> at <addr> @ io.py:read",
+    "output": "Traceback (most recent call last):\n  File \"/app/io.py\", line 2, in read\nRuntimeError: failed /tmp/test at 0x123abc\n",
+    "verdict": "exact",
+    "expected": null,
+    "actual": null
+  },
+  {
+    "name": "pytest_innermost",
+    "kind": "exception",
+    "type": "AttributeError",
+    "signature": "AttributeError: 'OrderedMultiDict' object has no attribute 'root' @ dictutils.py:_insert",
+    "output": "boltons/dictutils.py:333: in __setitem__\n    self._insert(k, v)\n    def _insert(self, k, v):\n>       root = self.root\nE       AttributeError: 'OrderedMultiDict' object has no attribute 'root'\nboltons/dictutils.py:198: AttributeError\n=========================== short test summary info ============================\nFAILED /work/repro/test_repro.py::test_omd_pickle_nonempty - AttributeError\n",
+    "verdict": "exact",
+    "expected": null,
+    "actual": null
+  },
+  {
+    "name": "ipy_frame",
+    "kind": "exception",
+    "type": "KeyError",
+    "signature": "KeyError: 'x' @ data.py:fetch",
+    "output": "Traceback (most recent call last)\nFile /tmp/data.py:12, in Widget.fetch(self)\nKeyError: 'x'\n",
+    "verdict": "exact",
+    "expected": null,
+    "actual": null
+  },
+  {
+    "name": "printed_not_failure",
+    "kind": "exception",
+    "type": "ValueError",
+    "signature": "ValueError: bad @ a.py:f",
+    "output": "ValueError: bad\n",
+    "verdict": "none",
+    "expected": null,
+    "actual": null
+  },
+  {
+    "name": "output_exact",
+    "kind": "wrong_output",
+    "type": null,
+    "signature": null,
+    "output": "E       assert 8 == 5\n",
+    "verdict": "exact",
+    "expected": "5",
+    "actual": "8"
+  },
+  {
+    "name": "output_mismatch",
+    "kind": "wrong_output",
+    "type": null,
+    "signature": null,
+    "output": "E       assert 7 == 5\n",
+    "verdict": "none",
+    "expected": "5",
+    "actual": "8"
+  },
+  {
+    "name": "output_insufficient",
+    "kind": "wrong_output",
+    "type": null,
+    "signature": null,
+    "output": "E       assert 8 == 5\n",
+    "verdict": "none",
+    "expected": null,
+    "actual": "8"
+  }
+]

@@ -1,10 +1,10 @@
 # Step 6: local verification
 
 The manual issue is https://github.com/mahmoud/boltons/issues/337. It reports
-version 23.0.0 and an AttributeError during a pickle round trip. The temporary
-checker only supports exceptions, using the exception type and function name.
-It is a heuristic, not a verifier; Step 7 replaces it. A candidate is not a
-proven reproduction until the saved test is independently checked.
+version 23.0.0 and an AttributeError during a pickle round trip. The Step 7
+deterministic matcher checks exception type, normalized message and frame,
+and handles simple wrong-output assertions. A candidate is not a proven
+reproduction until the saved test is independently checked.
 
 Each tool command runs in a new non-root, network-disabled container with a
 read-only root filesystem and a size-limited `/tmp`. A single host folder,
@@ -51,5 +51,5 @@ until the isolation checks and the manual run pass.
 
 Known limitations: the trace records cached tokens as null because the current
 model interface does not expose them. The existing model-call trace is written
-separately from the agent step trace. The naive checker cannot judge wrong
+separately from the agent step trace. The checker cannot judge arbitrary wrong
 output, performance, crashes without an exception, or causal equivalence.

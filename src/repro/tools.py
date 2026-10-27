@@ -1,4 +1,4 @@
-"""Step 6 symptom-checking interface; execution tools are not implemented yet."""
+"""Sandbox execution tools and the symptom-checker interface."""
 from __future__ import annotations
 
 import re
@@ -21,12 +21,12 @@ class SymptomChecker(Protocol):
 
 
 class NaiveSymptomChecker:
-    """Temporary Step 6 stub, not verification; Step 7 must replace it."""
+    """Legacy Step 6 checker retained for compatibility; not the default."""
 
     def check(self, issue: IssueRecord, output: str) -> SymptomMatch:
         symptom = issue.symptom
         if symptom.kind != 'exception':
-            return SymptomMatch('none', 'Non-exception symptoms are not supported until Step 7')
+            return SymptomMatch('none', 'Non-exception symptoms unsupported by legacy checker; use Step 7 matcher')
         exception = symptom.type
         if not exception or not re.search(rf'(?<![\w.]){re.escape(exception)}(?!\w)', output):
             return SymptomMatch('none', 'Expected exception type was not found')
@@ -78,7 +78,10 @@ class SandboxTools:
                  timeout: float = 30):
         self.sandbox = sandbox
         self.issue = issue
-        self.checker = checker or NaiveSymptomChecker()
+        if checker is None:
+            from repro.matcher import DeterministicSymptomChecker
+            checker = DeterministicSymptomChecker()
+        self.checker = checker
         self.timeout = timeout
         self.deadline: float | None = None
 
