@@ -16,6 +16,10 @@ class BudgetExceeded(RuntimeError):
     """A configured limit prevents the request."""
 
 
+class ProviderError(RuntimeError):
+    """A provider request failed without exposing response or request secrets."""
+
+
 class UsageUnavailable(RuntimeError):
     """Usage was unavailable; the reservation remains charged conservatively."""
 
@@ -212,7 +216,10 @@ def call_model(*, provider, model: str, messages: list, tools: list | None,
         remaining = float(budget.limits['max_seconds']) - (budget.clock() - budget.started)
         if remaining <= 0:
             raise BudgetExceeded('Time limit reached')
-        count = provider.count(model=model, messages=messages, tools=tools, timeout=min(30, remaining))
+        try:
+            count = provider.count(model=model, messages=messages, tools=tools, timeout=min(30, remaining))
+        except Exception:
+            raise ProviderError('Provider token-count request failed') from None
         ceiling = count + max(128, (count + 99) // 100)
     elif type(provider) is FakeProvider:
         ceiling = int(cfg['input_token_ceiling'])
@@ -226,8 +233,11 @@ def call_model(*, provider, model: str, messages: list, tools: list | None,
     if remaining <= 0:
         raise BudgetExceeded('Time limit reached before request')
     try:
-        message, inp, out = provider.complete(model=model, messages=messages, tools=tools,
-                                              max_output_tokens=max_output_tokens, timeout=remaining)
+        try:
+            message, inp, out = provider.complete(model=model, messages=messages, tools=tools,
+                                                  max_output_tokens=max_output_tokens, timeout=remaining)
+        except Exception:
+            raise ProviderError('Provider generation request failed; reservation retained') from None
         if type(inp) is not int or type(out) is not int or inp < 0 or out < 0 or inp > ceiling or out > max_output_tokens:
             raise UsageUnavailable('Usage missing, invalid, or exceeds reservation')
         actual = cost_nanos(inp, out, cfg)
