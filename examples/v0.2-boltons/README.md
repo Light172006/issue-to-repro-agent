@@ -9,8 +9,9 @@
 
 The test, result fields and pytest excerpt are transcribed from the project
 owner's reported successful run and independent check. The test fails with the
-reported `AttributeError` at `dictutils.py:_insert`. The full successful agent
-trace is not yet included; it remains on the project owner's machine.
+reported `AttributeError` at `dictutils.py:_insert`. The original successful agent trace is saved as `trace.jsonl`. It contains
+short source excerpts from boltons, whose BSD license is included in
+`BOLTONS-LICENSE.txt`.
 
 The Step 7 deterministic matcher rated the saved submission `exact`. This is a
 candidate, not Step 9 verification: repeated-run and fixed-version checks are

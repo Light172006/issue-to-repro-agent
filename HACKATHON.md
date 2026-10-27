@@ -17,4 +17,4 @@
 
 - October 28, 2026 — Step 6: the project owner reported a successful boltons 23.0.0 candidate and an independently failing test; conservative recorded cost was $0.03205825. Docker isolation checks passed on Windows.
 - October 28, 2026 — Step 7: deterministic symptom matcher passed 15 saved simulated-output cases, including a shortened trace based on the manual boltons repro.
-- October 28, 2026 — Step 8: the project owner reported that the saved test failed independently with the reported exception. Step 9 verification and confidence remain pending. The v0.2 checkpoint still needs the original run trace and release tag.
+- October 28, 2026 — Step 8: the project owner reported that the saved test failed independently with the reported exception. Step 9 verification and confidence remain pending. The original successful agent trace and a reproduction example are saved under `examples/v0.2-boltons`.
