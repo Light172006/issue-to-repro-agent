@@ -207,3 +207,36 @@ def test_time_limit_stops_before_call(tmp_path):
     assert result.outcome == 'limit_hit:time'
     assert provider.calls == 0
     assert toolbox.closed
+
+
+def test_agent_uses_minimal_reasoning_and_records_output_limit(tmp_path):
+    import json
+
+    limits = {'max_steps': 25, 'max_run_usd': 1, 'max_seconds': 900,
+              'max_daily_usd': 5, 'max_total_usd': 120}
+    budget = Budget(tmp_path / 'ledger.sqlite', limits)
+    provider = FakeProvider(message=[], output_tokens=2048)
+    options = []
+    complete = provider.complete
+
+    def capture(**kwargs):
+        options.append(kwargs)
+        return complete(**kwargs)
+
+    provider.complete = capture
+    toolbox = Toolbox()
+    config = {'fake': {'input_token_ceiling': 1000, 'input_per_million': '1.25',
+                       'output_per_million': '4.25'}}
+    trace_path = tmp_path / 'trace.jsonl'
+    try:
+        result = run_agent(IssueRecord(repo='example/project', issue=1), toolbox,
+                           provider=provider, budget=budget, model_config=config,
+                           model='fake', trace_path=str(trace_path), tool_schemas=[])
+    finally:
+        budget.close()
+    assert result.outcome == 'error'
+    assert all(call['reasoning_effort'] == 'minimal' for call in options)
+    assert all(call['max_output_tokens'] == 2048 for call in options)
+    events = [json.loads(line) for line in trace_path.read_text().splitlines()]
+    assert events[0]['error'] == 'No tool call; output token limit reached'
+    assert events[-1]['outcome'] == 'error'

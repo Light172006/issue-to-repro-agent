@@ -42,7 +42,7 @@ python -u scripts/e2e_step6.py
 Remove-Item Env:META_MODEL_API_KEY
 ```
 
-Do not paste the key in chat. A typical 10–20-call run is roughly $0.10–$0.30,
+Do not paste the key in chat. A typical 10–20-call run is roughly $0.15–$0.50,
 depending on token usage; the configured per-run cap is $1.00. The cap also
 reserves cost conservatively when usage is unavailable. Verify the candidate
 repro by running the saved test independently against the reported version.
