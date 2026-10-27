@@ -55,7 +55,6 @@ class ModelTests(unittest.TestCase):
                            model_config=MODELS, trace_path=self.root / 'other.jsonl')
         finally: other.close()
 
-if __name__ == '__main__': unittest.main()
 
 class MetaPreflightTests(ModelTests):
     def test_real_adapter_preflights_and_reconciles(self):
@@ -83,3 +82,21 @@ class MetaPreflightTests(ModelTests):
 
     def test_cannot_raise_hard_limit(self):
         with self.assertRaises(ValueError): Budget(self.root / 'other.sqlite3', {**LIMITS, 'max_run_usd':'2'})
+
+class EndpointTests(unittest.TestCase):
+    def test_count_uses_exact_meta_url(self):
+        import httpx
+        from repro.llm import OpenAIProvider
+        seen = []
+        def handle(request):
+            seen.append(str(request.url))
+            return httpx.Response(200, json={'input_tokens': 12})
+        provider = object.__new__(OpenAIProvider)
+        provider.http = httpx.Client(base_url='https://api.meta.ai/v1', transport=httpx.MockTransport(handle))
+        try:
+            self.assertEqual(provider.count(model='muse-spark-1.3', messages=[], tools=None, timeout=5), 12)
+        finally:
+            provider.http.close()
+        self.assertEqual(seen, ['https://api.meta.ai/v1/responses/input_tokens'])
+
+if __name__ == '__main__': unittest.main()

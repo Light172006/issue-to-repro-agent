@@ -135,7 +135,7 @@ class OpenAIProvider:
         body = {'model': model, 'input': messages}
         if tools:
             body['tools'] = tools
-        response = self.http.post('/v1/responses/input_tokens', json=body, timeout=timeout)
+        response = self.http.post('responses/input_tokens', json=body, timeout=timeout)
         response.raise_for_status()
         count = response.json()['input_tokens']
         if type(count) is not int or count < 0:
