@@ -1,7 +1,6 @@
 import unittest
 from unittest.mock import Mock, patch
-import sys
-import types
+
 from repro.sandbox import Sandbox
 
 class SandboxTests(unittest.TestCase):
@@ -36,16 +35,31 @@ class SandboxTests(unittest.TestCase):
 
     def test_cleanup_when_wait_fails(self):
         self.container.wait.side_effect = RuntimeError('docker failure')
-        requests = types.SimpleNamespace(exceptions=types.SimpleNamespace(Timeout=TimeoutError))
-        with patch.dict(sys.modules, {'requests': requests}), self.assertRaises(RuntimeError):
+        with patch('repro.sandbox._is_wait_timeout', return_value=False), self.assertRaises(RuntimeError):
             self.sandbox.run(['echo', 'hello'])
         self.container.remove.assert_called_once_with(force=True)
 
     def test_timeout_kills_and_cleans_container(self):
-        requests = types.SimpleNamespace(exceptions=types.SimpleNamespace(Timeout=TimeoutError))
         self.container.wait.side_effect = TimeoutError('timed out')
-        with patch.dict(sys.modules, {'requests': requests}):
+        with patch('repro.sandbox._is_wait_timeout', return_value=True):
             result = self.sandbox.run(['sleep', '5'], timeout=1)
         self.assertTrue(result.timed_out)
         self.container.kill.assert_called_once()
+        self.container.remove.assert_called_once_with(force=True)
+
+    def test_windows_wrapped_read_timeout(self):
+        from requests.exceptions import ConnectionError
+        from urllib3.exceptions import ReadTimeoutError
+        self.container.wait.side_effect = ConnectionError(ReadTimeoutError(None, None, 'Read timed out'))
+        result = self.sandbox.run(['sleep', '5'], timeout=1)
+        self.assertTrue(result.timed_out)
+        self.container.kill.assert_called_once()
+        self.container.remove.assert_called_once_with(force=True)
+
+    def test_unrelated_connection_error_is_not_timeout(self):
+        from requests.exceptions import ConnectionError
+        self.container.wait.side_effect = ConnectionError('connection refused')
+        with self.assertRaises(ConnectionError):
+            self.sandbox.run(['sleep', '5'], timeout=1)
+        self.container.kill.assert_not_called()
         self.container.remove.assert_called_once_with(force=True)

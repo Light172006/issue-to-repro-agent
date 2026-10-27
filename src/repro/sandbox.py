@@ -12,6 +12,28 @@ class SandboxResult:
     timed_out: bool
 
 
+def _is_wait_timeout(error: Exception) -> bool:
+    """Recognize direct and wrapped HTTP read timeouts, not other errors."""
+    from requests.exceptions import ConnectionError, Timeout
+    from urllib3.exceptions import ReadTimeoutError
+    if isinstance(error, Timeout):
+        return True
+    if not isinstance(error, ConnectionError):
+        return False
+    pending = [error]
+    visited = set()
+    while pending:
+        item = pending.pop()
+        if not isinstance(item, BaseException) or id(item) in visited:
+            continue
+        visited.add(id(item))
+        if isinstance(item, (Timeout, ReadTimeoutError)):
+            return True
+        pending.extend(item.args)
+        pending.extend((item.__cause__, item.__context__))
+    return False
+
+
 class Sandbox:
     """Local Docker sandbox. Uses Linux containers and never mounts host files.
 
@@ -77,9 +99,8 @@ class Sandbox:
                 result = container.wait(timeout=timeout)
                 exit_code = result['StatusCode']
             except Exception as exc:
-                # Docker SDK uses requests timeout exceptions for wait timeouts.
-                import requests
-                if not isinstance(exc, requests.exceptions.Timeout):
+                # On Windows requests may wrap urllib3's read timeout in a ConnectionError.
+                if not _is_wait_timeout(exc):
                     raise
                 timed_out = True
                 container.kill()
