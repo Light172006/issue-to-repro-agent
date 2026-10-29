@@ -27,6 +27,12 @@ def main() -> int:
         env = json.loads((folder / 'environment.json').read_text(encoding='utf-8'))
         fixed_file = folder / 'fixed_environment' / 'environment.json'
         fixed = json.loads(fixed_file.read_text(encoding='utf-8')) if fixed_file.exists() else None
+        previous = json.loads((folder / 'result.json').read_text(encoding='utf-8'))
+        prior_fixed = previous.get('checks', {}).get('fixed_version')
+        if prior_fixed and (not fixed or not prior_fixed.get('commit') or
+                            fixed.get('commit') != prior_fixed['commit'] or
+                            fixed.get('repo', '').lower() != record.repo.lower()):
+            raise ValueError('Fixed environment does not match prior verified commit')
         settings = load_config(Path('config/limits.yaml')).get('minimizer', {})
         with closing(docker.from_env()) as client:
             data = minimize_run(folder, record, client, env['image'],
@@ -38,7 +44,7 @@ def main() -> int:
         checks = data['checks']
         conditions = {
             'five identical failures': checks.get('repeated_runs', {}).get('consistent') is True,
-            'buggy fails and fixed passes': bool(checks.get('fixed_version', {}).get('passed')),
+            'buggy fails and fixed passes': bool((checks.get('fixed_version') or {}).get('passed')),
             'minimized and same failure': details['status'] == 'minimized' and details['final_lines'] < details['original_lines'],
             'confidence computed': data.get('confidence') is not None,
         }

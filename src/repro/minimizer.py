@@ -209,8 +209,9 @@ def minimize_run(folder, record, client, buggy_image, *, fixed_image=None,
     if candidate_path.is_symlink() or not candidate_path.is_file():
         raise ValueError('Candidate missing or is a symlink')
     original = candidate_path.read_bytes()
-    if (folder / 'test_repro.orig.py').exists():
-        raise ValueError('Original backup already exists; refusing to overwrite it')
+    backup = folder / 'test_repro.orig.py'
+    if backup.is_symlink() or (backup.exists() and backup.read_bytes() != original):
+        raise ValueError('Existing original backup differs from candidate')
     previous = data.get('checks', {}).get('repeated_runs', {}).get('runs', [])
     expected = previous[0].get('failure') if previous else None
     if not expected or hashlib.sha256(original).hexdigest() != data.get('candidate_sha256'):
