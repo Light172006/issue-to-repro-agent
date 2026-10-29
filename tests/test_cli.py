@@ -93,6 +93,7 @@ def test_reported_markdown_version_reaches_environment_builder(tmp_path, monkeyp
     monkeypatch.setattr(cli, 'EnvironmentBuilder', Mock(return_value=builder))
     monkeypatch.setattr(cli, 'Sandbox', Mock())
     monkeypatch.setattr(cli, 'SandboxTools', Mock())
+    monkeypatch.setattr(cli, 'assess', lambda *args: None)
     monkeypatch.setattr(cli, 'run_agent', Mock(return_value=AgentResult('gave_up', None, None, 0, '0', 0)))
     result = CliRunner().invoke(app, ['https://github.com/fictional/mapping/issues/1'])
     assert result.exit_code == 0, result.exception
@@ -188,6 +189,7 @@ def test_cli_saves_accepted_candidate_in_run_folder(tmp_path, monkeypatch):
     monkeypatch.setattr(cli, 'EnvironmentBuilder', Mock(return_value=builder))
     monkeypatch.setattr(cli, 'Sandbox', sandbox_factory)
     monkeypatch.setattr(cli, 'SandboxTools', Mock())
+    monkeypatch.setattr(cli, 'assess', lambda *args: None)
     monkeypatch.setattr(cli, 'run_agent', fake_agent)
     output = CliRunner().invoke(app, ['https://github.com/fictional/mapping/issues/1'])
     assert output.exit_code == 0, output.exception

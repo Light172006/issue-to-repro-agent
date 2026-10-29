@@ -19,9 +19,11 @@ from repro.github import fetch_issue
 from repro.llm import Budget, BudgetExceeded, OpenAIProvider, load_config
 from repro.minimizer import minimize_run
 from repro.parser import ModelClient, parse_issue
-from repro.result_writer import ArtifactError, write_run_artifacts
+from repro.report import write_report
+from repro.result_writer import ArtifactError, _atomic_write, write_run_artifacts
 from repro.sandbox import Sandbox
 from repro.tools import SandboxTools, tool_schemas
+from repro.triage import assess
 from repro.verifier import save_verification, verify
 
 app = typer.Typer(add_completion=False)
@@ -71,10 +73,22 @@ def main(issue_url: str, no_minimize: bool = typer.Option(False, '--no-minimize'
                                      str(Decimal(budget.run_charged) / Decimal(1_000_000_000)),
                                      budget.clock() - budget.started,
                                      reason='Parser output failed validation; environment was not built')
-                write_run_artifacts(folder, result)
+                written = write_run_artifacts(folder, result)
+                write_report(folder, written, secrets=(key, os.environ.get('GITHUB_TOKEN', '')))
                 typer.echo(f'Outcome: {result.outcome}\nReason: {result.reason}\n'
                            f'Conservative cost USD: {result.cost_usd}\nRun folder: {folder}')
                 raise typer.Exit(code=1)
+            triage = assess(issue, record)
+            if triage is not None:
+                stopped = _failed_result(budget, 'gave_up', triage.reason)
+                written = write_run_artifacts(folder, stopped)
+                written.update({'status': triage.status, 'status_detail': triage.reason,
+                                'questions': list(triage.questions)})
+                _atomic_write(folder / 'result.json', (json.dumps(written, indent=2) + '\n').encode('utf-8'))
+                write_report(folder, written, questions=triage.questions,
+                             secrets=(key, os.environ.get('GITHUB_TOKEN', '')))
+                typer.echo(f'Status: {triage.status}\nReason: {triage.reason}\nRun folder: {folder}')
+                return
             typer.echo(f'Parsed version: {record.version or "not stated (default branch)"}')
             headers = {'Accept': 'application/vnd.github+json', 'User-Agent': 'issue-to-repro-agent'}
             token = os.environ.get('GITHUB_TOKEN')
@@ -121,6 +135,7 @@ def main(issue_url: str, no_minimize: bool = typer.Option(False, '--no-minimize'
                     typer.echo(f'Minimization: {written["minimization"]["status"]}')
                 except Exception as exc:  # noqa: BLE001 - keep the saved candidate on verifier errors.
                     typer.echo(f'Verification could not run: {type(exc).__name__}; candidate remains pending')
+            write_report(folder, written, secrets=(key, os.environ.get('GITHUB_TOKEN', '')))
             typer.echo(f'Outcome: {result.outcome}\nReason: {result.reason or "none"}\n'
                        f'Verdict: {result.verdict or "none"}\n'
                        f'Conservative cost USD: {result.cost_usd}\nRun folder: {folder}\n'
@@ -129,7 +144,8 @@ def main(issue_url: str, no_minimize: bool = typer.Option(False, '--no-minimize'
         raise
     except KeyboardInterrupt:
         interrupted = _failed_result(budget, 'error', 'Interrupted by user')
-        write_run_artifacts(folder, interrupted)
+        written = write_run_artifacts(folder, interrupted)
+        write_report(folder, written, secrets=(key, os.environ.get('GITHUB_TOKEN', '')))
         typer.echo(f'Outcome: error\nReason: Interrupted by user\nRun folder: {folder}')
         raise typer.Exit(code=130) from None
     except Exception as exc:  # noqa: BLE001 - persist a sanitized result at the CLI boundary.
@@ -139,7 +155,8 @@ def main(issue_url: str, no_minimize: bool = typer.Option(False, '--no-minimize'
             outcome = ('limit_hit:time' if 'time' in detail else
                        'limit_hit:steps' if 'step' in detail else 'limit_hit:dollars')
         failed = _failed_result(budget, outcome, f'Pipeline failed: {type(exc).__name__}')
-        write_run_artifacts(folder, failed)
+        written = write_run_artifacts(folder, failed)
+        write_report(folder, written, secrets=(key, os.environ.get('GITHUB_TOKEN', '')))
         typer.echo(f'Outcome: {failed.outcome}\nReason: {failed.reason}\n'
                    f'Conservative cost USD: {failed.cost_usd}\nRun folder: {folder}')
         raise typer.Exit(code=1) from None
