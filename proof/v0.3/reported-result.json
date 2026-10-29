@@ -1,0 +1,11 @@
+{
+  "source": "project-owner report; transcription, not original result.json",
+  "issue": "https://github.com/mahmoud/boltons/issues/337",
+  "buggy_commit": "2adf15c735396b10e5050072babba0c319766726",
+  "fixed_version": "24.0.0",
+  "fixed_commit": "992a58c1036fcf4d52cbf3313b6217b7c07b11d9",
+  "minimization": {"status": "minimized", "original_lines": 7, "final_lines": 6, "runs": 27, "duration_s": 20.469},
+  "candidate_sha256": "516349c8dc382594ab4e598bc29f66cb9d625082858e4159a01607e68fd26ec8",
+  "verification": {"status": "reproduced", "confidence": "high", "symptom_match": "exact", "identical_failures": 5, "fixed_passed": true,
+    "failure": ["AttributeError", "AttributeError: 'OrderedMultiDict' object has no attribute 'root'", "dictutils.py:_insert"]}
+}
