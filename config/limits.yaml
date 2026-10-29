@@ -10,5 +10,22 @@
     "max_runs": 100,
     "candidate_timeout_s": 10,
     "workers": 1
+  },
+  "stall": {
+    "min_steps": 4,
+    "repeat_error_threshold": 3,
+    "no_progress_steps": 5,
+    "late_step_fraction": 0.6,
+    "late_dollar_fraction": 0.5
+  },
+  "escalation": {
+    "enabled": true,
+    "model": "muse-wonder-1.0",
+    "max_escalations": 1,
+    "max_steps": 10,
+    "max_dollars": "0.60",
+    "min_remaining_dollars": "0.25",
+    "min_remaining_steps": 5,
+    "max_output_tokens": 2048
   }
 }

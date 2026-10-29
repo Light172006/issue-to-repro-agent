@@ -79,3 +79,17 @@ def detect_stall(history: list[dict[str, Any]], config: dict[str, Any]) -> Stall
         if not new - seen:
             return StallVerdict(True, 'no_progress', (str(no_progress),))
     return StallVerdict(False)
+
+
+def summarize(history: list[dict[str, Any]], *, max_chars: int = 10000) -> str:
+    """Produce a deterministic compact history; caller supplies redacted data."""
+    parts = []
+    for step in history:
+        tool = str(step.get('tool', 'unknown'))
+        arguments = json.dumps(step.get('arguments', {}), sort_keys=True, ensure_ascii=True)
+        output = str(step.get('output', '')).replace('\n', ' ')[:250]
+        parts.append(f'{tool} {arguments[:500]}: {output}')
+    text = '\n'.join(parts)
+    if len(text) > max_chars:
+        return '[... earlier history truncated ...]\n' + text[-max_chars:]
+    return text
