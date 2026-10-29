@@ -116,7 +116,8 @@ def main(issue_url: str, no_minimize: bool = typer.Option(False, '--no-minimize'
             except (ArtifactError, OSError) as exc:
                 failed = replace(result, outcome='error', repro_path=None, verdict=None,
                                  reason=f'Unable to save candidate: {type(exc).__name__}')
-                write_run_artifacts(folder, failed)
+                written = write_run_artifacts(folder, failed)
+                write_report(folder, written, secrets=(key, os.environ.get('GITHUB_TOKEN', '')))
                 typer.echo(f'Outcome: error\nReason: {failed.reason}\nRun folder: {folder}')
                 raise typer.Exit(code=1) from None
             if result.outcome == 'candidate_found':

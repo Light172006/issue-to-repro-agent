@@ -142,3 +142,9 @@ def test_existing_candidate_requires_saved_match_evidence(tmp_path):
                             capture_output=True, text=True, check=False)
     assert result.returncode == 1
     assert not (tmp_path / 'test_repro.py').exists()
+
+
+def test_nonreproduction_reason_is_preserved(tmp_path):
+    data = write_run_artifacts(tmp_path, AgentResult('gave_up', None, None, 1, '0', 1, reason='Timeout'))
+    assert data['status'] == 'not_reproduced'
+    assert data['status_detail'] == 'Timeout'

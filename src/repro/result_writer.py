@@ -89,7 +89,7 @@ def write_run_artifacts(run_folder: str | Path, result: AgentResult) -> dict:
                             'repeated_runs': None, 'fixed_version': None},
                  'verification': 'pending' if result.outcome == 'candidate_found' else 'not_run',
                  'status_detail': ('Candidate awaits independent verification' if result.outcome == 'candidate_found'
-                                   else 'No verified reproduction'), 'test_file': None})
+                                   else result.reason or 'No verified reproduction'), 'test_file': None})
     if result.outcome == 'candidate_found':
         if result.verdict not in ('exact', 'partial') or not result.repro_path:
             raise ArtifactError('Candidate lacks a confirmed symptom match or path')
