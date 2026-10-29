@@ -17,8 +17,19 @@ def units(source: str, *, top_level: bool) -> list[Unit]:
     tree = ast.parse(source)
     lines = source.splitlines(keepends=True)
     result = []
-    bodies = [tree.body] if top_level else [node.body for node in ast.walk(tree)
-              if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))]
+    if top_level:
+        bodies = [tree.body]
+    else:
+        bodies = []
+        seen = set()
+        for function in (node for node in ast.walk(tree)
+                         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))):
+            for node in ast.walk(function):
+                for _, value in ast.iter_fields(node):
+                    if (isinstance(value, list) and value and
+                            all(isinstance(item, ast.stmt) for item in value) and id(value) not in seen):
+                        seen.add(id(value))
+                        bodies.append(value)
     for body in bodies:
         for statement in body:
             start = min([statement.lineno] + [d.lineno for d in getattr(statement, 'decorator_list', [])])
@@ -143,8 +154,8 @@ def minimize(repro_path, record, runner, matcher, limits) -> MinimizeResult:
             except Exception:  # noqa: BLE001 - fail closed for runner errors.
                 result = (False, 'runner error', None, None)
         cache[key] = result
-        if trace is not None:
-            trace.write({'sha256': key, 'reason': result[1], 'baseline': original})
+        if trace is not None and original:
+            trace.write({'sha256': key, 'reason': result[1], 'baseline': True})
         return result
 
     baseline = evaluate(source, original=True)
@@ -209,6 +220,8 @@ def minimize_run(folder, record, client, buggy_image, *, fixed_image=None,
         raise ValueError('Fixed image required to preserve prior verification')
     _atomic_write(folder / 'test_repro.orig.py', original)
     settings = dict(config or {})
+    if settings.get('workers', 1) != 1:
+        raise ValueError('Only one minimizer worker is currently supported')
     settings['trace'] = TraceWriter(folder / 'minimize.jsonl')
     started = time.monotonic()
     local_deadline = started + float(settings.get('time_limit_s', 300))
@@ -219,7 +232,7 @@ def minimize_run(folder, record, client, buggy_image, *, fixed_image=None,
     reduced = minimize(candidate_path, record, runner, DeterministicSymptomChecker(), settings)
     details = {k: v for k, v in asdict(reduced).items() if k != 'source'}
     verification = None
-    if reduced.status not in ('skipped', 'unchanged') and reduced.source != original:
+    if reduced.status != 'skipped':
         verification = verify(record, reduced.source, buggy_image, client, runs=folder.parent,
                               fixed_image=fixed_image, fixed_ref=fixed_ref,
                               deadline=local_deadline)
@@ -229,7 +242,8 @@ def minimize_run(folder, record, client, buggy_image, *, fixed_image=None,
                  ranks[verification['confidence']] >= ranks.get(data.get('confidence'), 0) and
                  all(run.get('failure') == expected for run in final_runs))
         if valid:
-            _atomic_write(candidate_path, reduced.source)
+            if reduced.source != original:
+                _atomic_write(candidate_path, reduced.source)
             data.update(verification)
         else:
             details['status'] = 'failed_verification'

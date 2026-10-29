@@ -1,1 +1,14 @@
-{"max_steps": 25, "max_run_usd": "1.00", "max_seconds": 900, "max_daily_usd": "5.00", "max_total_usd": "120.00"}
+{
+  "max_steps": 25,
+  "max_run_usd": "1.00",
+  "max_seconds": 900,
+  "max_daily_usd": "5.00",
+  "max_total_usd": "120.00",
+  "minimizer": {
+    "enabled": true,
+    "time_limit_s": 300,
+    "max_runs": 100,
+    "candidate_timeout_s": 10,
+    "workers": 1
+  }
+}

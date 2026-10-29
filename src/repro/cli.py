@@ -17,6 +17,7 @@ from repro.agent import AgentResult, run_agent
 from repro.envbuilder import EnvironmentBuilder
 from repro.github import fetch_issue
 from repro.llm import Budget, BudgetExceeded, OpenAIProvider, load_config
+from repro.minimizer import minimize_run
 from repro.parser import ModelClient, parse_issue
 from repro.result_writer import ArtifactError, write_run_artifacts
 from repro.sandbox import Sandbox
@@ -45,7 +46,7 @@ def _failed_result(budget: Budget | None, outcome: str, reason: str) -> AgentRes
 
 
 @app.command()
-def main(issue_url: str) -> None:
+def main(issue_url: str, no_minimize: bool = typer.Option(False, '--no-minimize')) -> None:
     """Fetch ISSUE_URL and attempt an offline reproduction."""
     key = os.environ.get('META_MODEL_API_KEY')
     if not key:
@@ -112,6 +113,12 @@ def main(issue_url: str) -> None:
                                               deadline=budget.started + float(limits['max_seconds']))
                     written = save_verification(folder, verification)
                     typer.echo(f'Verification: {written["status"]}; confidence: {written["confidence"]}')
+                    settings = limits.get('minimizer', {})
+                    with closing(docker.from_env()) as minimize_client:
+                        written = minimize_run(folder, record, minimize_client, environment['image'],
+                            config=settings, enabled=settings.get('enabled', True) and not no_minimize,
+                            deadline=budget.started + float(limits['max_seconds']))
+                    typer.echo(f'Minimization: {written["minimization"]["status"]}')
                 except Exception as exc:  # noqa: BLE001 - keep the saved candidate on verifier errors.
                     typer.echo(f'Verification could not run: {type(exc).__name__}; candidate remains pending')
             typer.echo(f'Outcome: {result.outcome}\nReason: {result.reason or "none"}\n'

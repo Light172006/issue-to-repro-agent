@@ -68,3 +68,54 @@ def test_final_verification_failure_keeps_original(tmp_path, monkeypatch):
     assert result['minimization']['status'] == 'failed_verification'
     assert (tmp_path / 'test_repro.py').read_bytes() == original
     assert (tmp_path / 'test_repro.orig.py').read_bytes() == original
+
+
+def test_bloated_fixture_shrinks_and_keeps_dependencies(tmp_path):
+    from pathlib import Path
+    path = tmp_path / 'test_repro.py'
+    path.write_bytes((Path(__file__).parent / 'fixtures/minimizer/bloated.py').read_bytes())
+    def runner(data, timeout):
+        text = data.decode()
+        interesting = 'def required_helper' in text and 'value = required_helper()' in text and 'raise ValueError' in text
+        return SimpleNamespace(exit_code=1 if interesting else 0, output=OUTPUT if interesting else '1 passed', timed_out=False)
+    result = minimize(path, ISSUE, runner, DeterministicSymptomChecker(), {'max_runs': 100})
+    assert result.final_lines < 15
+    assert result.status == 'minimized'
+    assert b'def required_helper' in result.source
+
+
+def test_run_budget_returns_smallest_seen(tmp_path):
+    path = tmp_path / 'test.py'
+    path.write_text('import os\ndef test_x():\n    raise ValueError("bad")\n')
+    runner = lambda data, timeout: SimpleNamespace(exit_code=1, output=OUTPUT, timed_out=False)
+    result = minimize(path, ISSUE, runner, DeterministicSymptomChecker(), {'max_runs': 1})
+    assert result.status == 'timeout'
+    assert result.runs == 1
+
+
+def test_one_minimal_for_generated_independent_statements(tmp_path):
+    import random
+
+    from repro.minimizer import remove_units, units
+    rng = random.Random(47)
+    for example in range(12):
+        count = rng.randint(2, 9)
+        required = rng.randrange(count)
+        source = 'def test_x():\n' + ''.join(f'    item_{i} = {i}\n' for i in range(count)) + '    raise ValueError("bad")\n'
+        path = tmp_path / f'example_{example}.py'
+        path.write_text(source)
+        marker = f'item_{required} = {required}'
+        def runner(data, timeout, marker=marker):
+            text = data.decode()
+            valid = marker in text and 'raise ValueError' in text
+            return SimpleNamespace(exit_code=1 if valid else 0, output=OUTPUT if valid else '1 passed', timed_out=False)
+        result = minimize(path, ISSUE, runner, DeterministicSymptomChecker(), {'max_runs': 100})
+        final = result.source.decode()
+        assert result.status != 'timeout'
+        for unit in units(final, top_level=False):
+            candidate = remove_units(final, [unit])
+            try:
+                compile(candidate, '<test>', 'exec')
+            except SyntaxError:
+                continue
+            assert marker not in candidate or 'raise ValueError' not in candidate
