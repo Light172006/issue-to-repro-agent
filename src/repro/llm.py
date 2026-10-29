@@ -236,7 +236,7 @@ def call_model(*, provider, model: str, messages: list, tools: list | None,
                budget: Budget, model_config: dict, trace_path: str | Path,
                max_output_tokens: int = 256, temperature: float | None = None, json_schema: dict | None = None,
                reasoning_effort: str | None = None,
-               max_reservation_nanos: int | None = None) -> Reply:
+               max_reservation_nanos: int | None = None, phase: str | None = None) -> Reply:
     """Make one call. Reserve its maximum possible charge before sending.
 
     Real calls use Meta's preflight count plus a safety margin and bounded output.
@@ -327,6 +327,8 @@ def call_model(*, provider, model: str, messages: list, tools: list | None,
                  'output_tokens': out, 'cost_usd': str(result.cost_usd),
                  'reserved_usd': str(Decimal(reserve) / Decimal(1_000_000_000)),
                  'step': budget.steps}
+        if phase is not None:
+            event['phase'] = phase
         with open(trace_path, 'a', encoding='utf-8') as f:
             f.write(json.dumps(event) + '\n')
         if budget.clock() - budget.started >= float(budget.limits['max_seconds']):

@@ -96,3 +96,27 @@ def summarize(history: list[dict[str, Any]], *, max_chars: int = 10000) -> str:
     if len(text) > max_chars:
         return '[... earlier history truncated ...]\n' + text[-max_chars:]
     return text
+
+
+def handoff(issue_json: str, history: list[dict[str, Any]], verdict: StallVerdict,
+            repro_content: str | None, *, max_chars: int = 12000) -> str:
+    """Construct a bounded handoff from data already redacted by the caller."""
+    counts: dict[str, int] = {}
+    for step in history:
+        error = _error(step)
+        if error:
+            counts[error] = counts.get(error, 0) + 1
+    body = ('<untrusted_issue>\n' + issue_json + '\n</untrusted_issue>\n'
+            + 'Trigger: ' + str(verdict.reason) + '; evidence: ' + repr(verdict.evidence) + '\n'
+            + 'Tried calls: \n' + summarize(history, max_chars=6000) + '\n'
+            + 'Error counts: ' + json.dumps(counts, sort_keys=True) + '\n'
+            + 'Ruled-out hypotheses: not explicitly recorded.\n'
+            + 'Latest repro content: \n' + (repro_content or '[unavailable]') + '\n'
+            + 'Recent steps: ' + json.dumps(history[-3:], sort_keys=True, ensure_ascii=True))
+    prefix = '<untrusted_handoff>\n'
+    suffix = '\n</untrusted_handoff>'
+    budget = max(0, max_chars - len(prefix) - len(suffix))
+    if len(body) > budget:
+        note = '\n[... handoff truncated ...]'
+        body = body[:max(0, budget - len(note))] + note[:budget]
+    return prefix + body + suffix

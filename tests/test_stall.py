@@ -46,3 +46,13 @@ def test_repeated_command_timeouts_are_infrastructure():
     steps = [step(arguments={'command': str(i)}, output='Error: command timed out', error=None) for i in range(4)]
     result = detect_stall(steps, {})
     assert result.infrastructure and result.reason == 'repeated_timeout'
+
+
+def test_handoff_is_deterministic_and_bounded():
+    from repro.stall import StallVerdict, handoff
+    steps = [step(arguments={'command': 'cat test.py'}, output='hello', error=None)]
+    verdict = StallVerdict(True, 'no_progress', ('5',))
+    first = handoff('{"issue":1}', steps, verdict, 'def test_x(): pass', max_chars=400)
+    assert first == handoff('{"issue":1}', steps, verdict, 'def test_x(): pass', max_chars=400)
+    assert len(first) <= 400 and first.startswith('<untrusted_handoff>')
+    assert 'cat test.py' in first

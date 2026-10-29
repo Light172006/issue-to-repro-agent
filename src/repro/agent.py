@@ -18,7 +18,7 @@ from repro.llm import (
     dollars,
 )
 from repro.parser import IssueRecord
-from repro.stall import detect_stall, summarize
+from repro.stall import detect_stall, handoff, summarize
 from repro.trace import TraceWriter, redact
 
 SYSTEM = (
@@ -115,7 +115,7 @@ def run_agent(issue: IssueRecord, toolbox: Any, *, provider: Any, budget: Any,
                 reply = call_model(provider=provider, model=active_model, messages=history,
                                    tools=tool_schemas, budget=budget, model_config=model_config,
                                    trace_path=trace_path + '.model', max_output_tokens=int(policy.get('max_output_tokens', 2048)) if is_wonder else MAX_OUTPUT_TOKENS,
-                                   reasoning_effort='minimal', **options)
+                                   reasoning_effort='minimal', phase='escalated' if is_wonder else 'spark', **options)
             except BudgetExceeded as exc:
                 if is_wonder:
                     wonder_charged += budget.run_charged - call_before
@@ -253,7 +253,8 @@ def run_agent(issue: IssueRecord, toolbox: Any, *, provider: Any, budget: Any,
             late_steps = budget.steps >= float(stall_config.get('late_step_fraction', 0.6)) * int(budget.limits['max_steps'])
             late_money = budget.run_charged >= float(stall_config.get('late_dollar_fraction', 0.5)) * dollars(budget.limits['max_run_usd'])
             if (policy.get('enabled', False) and not attempted and int(policy.get('max_escalations', 1)) > 0 and
-                    (stall_verdict.stalled or late_steps or late_money or
+                    ((len(steps_history) >= int(stall_config.get('min_steps', 4)) and
+                      (stall_verdict.stalled or late_steps or late_money)) or
                      (force_escalate_at_step is not None and budget.steps >= force_escalate_at_step))):
                 attempted = True
                 trigger = ('forced_plumbing_test' if force_escalate_at_step is not None and budget.steps >= force_escalate_at_step
@@ -270,11 +271,24 @@ def run_agent(issue: IssueRecord, toolbox: Any, *, provider: Any, budget: Any,
                 handoff_index = len(steps_history)
                 escalation.update({'escalated': True, 'trigger': trigger, 'step': budget.steps,
                                    'reason': stall_verdict.reason or 'late trigger'})
-                safe = summarize(redact(steps_history, secrets), max_chars=10000)
-                handoff = ('A smaller model got stuck. Do not repeat attempts; consider environment, version, '
-                           'API usage, inputs, source and changelog. All sandbox rules still apply.\n'
-                           '<untrusted_history_summary>\n' + safe + '\n</untrusted_history_summary>')
-                history = history[:2] + [{'role': 'user', 'content': handoff}] + history[-6:]
+                repro_content = None
+                for step in reversed(steps_history):
+                    if step.get('tool') == 'write_file' and isinstance(step.get('arguments'), dict):
+                        path = step['arguments'].get('path')
+                        if isinstance(path, str):
+                            try:
+                                read = toolbox.execute('read_file', {'path': path})
+                                if isinstance(read, dict) and not str(read.get('output', '')).startswith('Error:'):
+                                    repro_content = str(read.get('output', ''))
+                            except Exception:  # noqa: BLE001 - omit inaccessible repro.
+                                repro_content = None
+                        break
+                safe_steps = redact(steps_history, secrets)
+                safe = handoff(redact(issue.model_dump_json(), secrets), safe_steps,
+                               stall_verdict, redact(repro_content, secrets))
+                message = ('A smaller model got stuck. Do not repeat attempts; consider environment, version, '
+                           'API usage, inputs, source and changelog. All sandbox rules still apply.\n' + safe)
+                history = history[:2] + [{'role': 'user', 'content': message}] + redact(history[-6:], secrets)
                 trace.write({'event': 'escalation', 'step': budget.steps, 'trigger': trigger,
                              'reason': escalation['reason'], 'evidence': list(stall_verdict.evidence),
                              'spark_spend_usd': str(Decimal(wonder_start) / Decimal(1_000_000_000)),
