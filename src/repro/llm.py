@@ -235,7 +235,8 @@ class OpenAIProvider:
 def call_model(*, provider, model: str, messages: list, tools: list | None,
                budget: Budget, model_config: dict, trace_path: str | Path,
                max_output_tokens: int = 256, temperature: float | None = None, json_schema: dict | None = None,
-               reasoning_effort: str | None = None) -> Reply:
+               reasoning_effort: str | None = None,
+               max_reservation_nanos: int | None = None) -> Reply:
     """Make one call. Reserve its maximum possible charge before sending.
 
     Real calls use Meta's preflight count plus a safety margin and bounded output.
@@ -289,6 +290,8 @@ def call_model(*, provider, model: str, messages: list, tools: list | None,
     if ceiling <= 0:
         raise ValueError('input_token_ceiling must be positive')
     reserve = cost_nanos(ceiling, max_output_tokens, cfg)
+    if max_reservation_nanos is not None and reserve > max_reservation_nanos:
+        raise BudgetExceeded('Escalation budget would be exceeded')
     reservation_id = budget.reserve(reserve)
     remaining = float(budget.limits['max_seconds']) - (budget.clock() - budget.started)
     if remaining <= 0:

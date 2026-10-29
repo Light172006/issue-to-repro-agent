@@ -136,3 +136,23 @@ def test_tool_history_rejects_unpaired_or_hosted_actions():
     assert not _valid_messages([call, {**output, 'call_id': 'different'}], allow_tools=True)
     assert not _valid_messages([call, output], allow_tools=False)
     assert not _valid_messages([{'type': 'web_search_call', 'call_id': 'call_1'}], allow_tools=True)
+
+
+def test_escalation_reservation_cap_blocks_before_provider_call(tmp_path):
+    import pytest
+
+    from repro.llm import Budget, BudgetExceeded, FakeProvider, call_model
+    limits = {'max_steps': 25, 'max_run_usd': 1, 'max_seconds': 900,
+              'max_daily_usd': 5, 'max_total_usd': 120}
+    budget = Budget(tmp_path / 'ledger.sqlite', limits)
+    provider = FakeProvider()
+    config = {'fake': {'input_token_ceiling': 1000, 'input_per_million': '1.25',
+                       'output_per_million': '4.25'}}
+    try:
+        with pytest.raises(BudgetExceeded, match='Escalation budget'):
+            call_model(provider=provider, model='fake', messages=[], tools=None, budget=budget,
+                       model_config=config, trace_path=tmp_path / 'trace', max_output_tokens=100,
+                       max_reservation_nanos=1)
+        assert provider.calls == 0 and budget.steps == 0 and budget.run_charged == 0
+    finally:
+        budget.close()
