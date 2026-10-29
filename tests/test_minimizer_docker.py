@@ -18,10 +18,11 @@ def test_minimizer_with_boltons_image(tmp_path):
     record = IssueRecord(repo='mahmoud/boltons', issue=337, symptom=Symptom(
         kind='exception', type='AttributeError',
         signature="AttributeError: 'OrderedMultiDict' object has no attribute 'root' @ dictutils.py:_insert"))
-    candidate = Path('examples/v0.2-boltons/test_repro.py')
+    candidate = Path('tests/fixtures/minimizer/boltons_bloated.py')
     with closing(docker.from_env()) as client:
         def runner(data, timeout):
             return _run_once(client, os.environ['REPRO_STEP10_IMAGE'], data, runs=tmp_path / 'runs', timeout=timeout)
         result = minimize(candidate, record, runner, DeterministicSymptomChecker(), {'max_runs': 100})
     assert result.status == 'minimized'
+    assert result.final_lines < 15
     assert result.final_lines < result.original_lines

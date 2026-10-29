@@ -99,6 +99,32 @@ def _ddmin(source: str, choices: Callable[[str], list[Unit]], accept: Callable[[
             granularity = min(len(options), granularity * 2)
 
 
+def input_candidates(source: str):
+    """Propose shorter literal inputs using AST byte offsets, preserving surrounding source."""
+    tree = ast.parse(source)
+    lines = source.encode('utf-8').splitlines(keepends=True)
+    offsets = [0]
+    for line in lines:
+        offsets.append(offsets[-1] + len(line))
+    raw = source.encode('utf-8')
+    constants = sorted((node for node in ast.walk(tree) if isinstance(node, ast.Constant)),
+                       key=lambda node: (node.lineno, node.col_offset))
+    for node in constants:
+        value = node.value
+        if isinstance(value, (str, bytes)) and value:
+            replacements = [value[:0], value[:len(value) // 2]]
+        elif isinstance(value, int) and not isinstance(value, bool) and value != 0:
+            replacements = [0]
+        else:
+            continue
+        start = offsets[node.lineno - 1] + node.col_offset
+        end = offsets[node.end_lineno - 1] + node.end_col_offset
+        for replacement in replacements:
+            literal = repr(replacement).encode('utf-8')
+            if len(literal) < end - start:
+                yield (raw[:start] + literal + raw[end:]).decode('utf-8')
+
+
 def minimize(repro_path, record, runner, matcher, limits) -> MinimizeResult:
     """Reduce a verified pytest candidate. runner accepts bytes and timeout.
 
@@ -113,16 +139,20 @@ def minimize(repro_path, record, runner, matcher, limits) -> MinimizeResult:
     except (UnicodeDecodeError, SyntaxError, ValueError):
         return MinimizeResult('skipped', 0, 0, 0, time.monotonic() - start, raw)
     original_lines = line_count(source)
+    if not source.strip():
+        return MinimizeResult('skipped', 0, 0, 0, time.monotonic() - start, raw)
     max_runs = int(limits.get('max_runs', 100))
     deadline = start + float(limits.get('time_limit_s', 300))
     timeout = max(10.0, float(limits.get('candidate_timeout_s', 10)))
+    baseline_timeout = max(timeout, 60.0)
+    original_duration = None
     trace = limits.get('trace')
     runs = 0
     exhausted = False
     cache = {}
 
     def evaluate(text, original=False):
-        nonlocal runs, exhausted
+        nonlocal runs, exhausted, original_duration
         key = hashlib.sha256(text.encode('utf-8')).hexdigest()
         if key in cache:
             return cache[key]
@@ -137,7 +167,12 @@ def minimize(repro_path, record, runner, matcher, limits) -> MinimizeResult:
                 return (False, 'limit', None, None)
             runs += 1
             try:
-                observation = runner(text.encode('utf-8'), min(timeout, remaining))
+                run_start = time.monotonic()
+                observation = runner(text.encode('utf-8'),
+                                     min(baseline_timeout if original else timeout, remaining))
+                elapsed = time.monotonic() - run_start
+                if original:
+                    original_duration = elapsed
                 output = observation.output
                 if observation.timed_out:
                     result = (False, 'timeout', None, None)
@@ -155,12 +190,17 @@ def minimize(repro_path, record, runner, matcher, limits) -> MinimizeResult:
                 result = (False, 'runner error', None, None)
         cache[key] = result
         if trace is not None and original:
-            trace.write({'sha256': key, 'reason': result[1], 'baseline': True})
+            trace.write({'sha256': key, 'reason': result[1], 'baseline': True,
+                         'duration_s': original_duration})
         return result
 
     baseline = evaluate(source, original=True)
     if not baseline[0]:
-        return MinimizeResult('skipped', original_lines, original_lines, runs, time.monotonic() - start, raw)
+        return MinimizeResult('timeout' if exhausted else 'skipped', original_lines, original_lines,
+                              runs, time.monotonic() - start, raw)
+
+    # Include container startup in the measurement and allow twice the baseline.
+    timeout = max(timeout, 2 * (original_duration or 0))
 
     def accept(text):
         result = evaluate(text)
@@ -172,12 +212,25 @@ def minimize(repro_path, record, runner, matcher, limits) -> MinimizeResult:
                          'different signature' if result[0] else result[1]})
         return accepted
 
+    if trace is not None:
+        trace.write({'event': 'candidate_timeout', 'seconds': timeout})
+
     source = _ddmin(source, lambda s: units(s, top_level=True), accept)
     source = _ddmin(source, lambda s: units(s, top_level=False), accept)
     source = _ddmin(source, lambda s: [Unit(i, i) for i, _ in enumerate(s.splitlines(), 1)], accept)
-    # A final single-unit pass restores 1-minimality after line deletions.
-    source = _ddmin(source, lambda s: units(s, top_level=True), accept)
-    source = _ddmin(source, lambda s: units(s, top_level=False), accept)
+    # Shorten literal inputs only when the exact observed failure survives.
+    while not exhausted:
+        reduced = next((candidate for candidate in input_candidates(source) if accept(candidate)), None)
+        if reduced is None:
+            break
+        source = reduced
+    # Revisit both levels until no individual statement can be removed.
+    while not exhausted:
+        before = source
+        source = _ddmin(source, lambda s: units(s, top_level=True), accept)
+        source = _ddmin(source, lambda s: units(s, top_level=False), accept)
+        if source == before:
+            break
     header = '# Minimized from test_repro.orig.py' + ('\r\n' if '\r\n' in source else '\n')
     if source != raw.decode('utf-8') and accept(header + source):
         source = header + source
@@ -237,6 +290,8 @@ def minimize_run(folder, record, client, buggy_image, *, fixed_image=None,
         verification = verify(record, reduced.source, buggy_image, client, runs=folder.parent,
                               fixed_image=fixed_image, fixed_ref=fixed_ref,
                               deadline=local_deadline)
+        if old_fixed and old_fixed.get('commit') and verification['checks']['fixed_version'] is not None:
+            verification['checks']['fixed_version']['commit'] = old_fixed['commit']
         ranks = {None: 0, 'low': 1, 'medium': 2, 'high': 3}
         final_runs = verification['checks']['repeated_runs']['runs']
         valid = (verification['status'] == 'reproduced' and
@@ -247,6 +302,8 @@ def minimize_run(folder, record, client, buggy_image, *, fixed_image=None,
                 _atomic_write(candidate_path, reduced.source)
             data.update(verification)
         else:
+            if reduced.source == original:
+                data.update(verification)
             details['status'] = 'failed_verification'
             details['final_lines'] = details['original_lines']
     data['minimization'] = details
