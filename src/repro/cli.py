@@ -21,6 +21,7 @@ from repro.parser import ModelClient, parse_issue
 from repro.result_writer import ArtifactError, write_run_artifacts
 from repro.sandbox import Sandbox
 from repro.tools import SandboxTools, tool_schemas
+from repro.verifier import save_verification, verify
 
 app = typer.Typer(add_completion=False)
 
@@ -103,6 +104,16 @@ def main(issue_url: str) -> None:
                 write_run_artifacts(folder, failed)
                 typer.echo(f'Outcome: error\nReason: {failed.reason}\nRun folder: {folder}')
                 raise typer.Exit(code=1) from None
+            if result.outcome == 'candidate_found':
+                try:
+                    with closing(docker.from_env()) as verify_client:
+                        verification = verify(record, (folder / 'test_repro.py').read_bytes(),
+                                              environment['image'], verify_client, runs=runs,
+                                              deadline=budget.started + float(limits['max_seconds']))
+                    written = save_verification(folder, verification)
+                    typer.echo(f'Verification: {written["status"]}; confidence: {written["confidence"]}')
+                except Exception as exc:  # noqa: BLE001 - keep the saved candidate on verifier errors.
+                    typer.echo(f'Verification could not run: {type(exc).__name__}; candidate remains pending')
             typer.echo(f'Outcome: {result.outcome}\nReason: {result.reason or "none"}\n'
                        f'Verdict: {result.verdict or "none"}\n'
                        f'Conservative cost USD: {result.cost_usd}\nRun folder: {folder}\n'

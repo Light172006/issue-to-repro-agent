@@ -195,7 +195,8 @@ def test_cli_saves_accepted_candidate_in_run_folder(tmp_path, monkeypatch):
     assert (folder / 'test_repro.py').read_text() == 'def test_example():\n    assert False\n'
     result = json.loads((folder / 'result.json').read_text())
     assert result['outcome'] == 'candidate_found'
-    assert result['verification'] == 'pending'
+    assert result['verification'] == 'completed'
+    assert result['status'] == 'not_reproduced'
     assert result['test_file'] == 'test_repro.py'
 
 
