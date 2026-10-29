@@ -173,3 +173,69 @@ def minimize(repro_path, record, runner, matcher, limits) -> MinimizeResult:
     status = 'timeout' if exhausted else 'minimized' if source != raw.decode('utf-8') else 'unchanged'
     return MinimizeResult(status, original_lines, line_count(source), runs,
                           time.monotonic() - start, source.encode('utf-8'))
+
+
+def minimize_run(folder, record, client, buggy_image, *, fixed_image=None,
+                 fixed_ref=None, config=None, enabled=True, deadline=None):
+    """Minimize an already verified run, reverify, and atomically save evidence."""
+    import json
+    from dataclasses import asdict
+
+    from repro.matcher import DeterministicSymptomChecker
+    from repro.result_writer import _atomic_write
+    from repro.trace import TraceWriter
+    from repro.verifier import _run_once, verify
+
+    folder = Path(folder)
+    result_path = folder / 'result.json'
+    data = json.loads(result_path.read_text(encoding='utf-8'))
+    candidate_path = folder / 'test_repro.py'
+    if not enabled or data.get('status') != 'reproduced' or data.get('verification') != 'completed':
+        data['minimization'] = {'status': 'skipped', 'original_lines': None, 'final_lines': None,
+                                'runs': 0, 'duration_s': 0}
+        _atomic_write(result_path, (json.dumps(data, indent=2) + '\n').encode())
+        return data
+    if candidate_path.is_symlink() or not candidate_path.is_file():
+        raise ValueError('Candidate missing or is a symlink')
+    original = candidate_path.read_bytes()
+    if (folder / 'test_repro.orig.py').exists():
+        raise ValueError('Original backup already exists; refusing to overwrite it')
+    previous = data.get('checks', {}).get('repeated_runs', {}).get('runs', [])
+    expected = previous[0].get('failure') if previous else None
+    if not expected or hashlib.sha256(original).hexdigest() != data.get('candidate_sha256'):
+        raise ValueError('Candidate does not match prior verification')
+    old_fixed = data.get('checks', {}).get('fixed_version')
+    if old_fixed and not fixed_image:
+        raise ValueError('Fixed image required to preserve prior verification')
+    _atomic_write(folder / 'test_repro.orig.py', original)
+    settings = dict(config or {})
+    settings['trace'] = TraceWriter(folder / 'minimize.jsonl')
+    started = time.monotonic()
+    local_deadline = started + float(settings.get('time_limit_s', 300))
+    if deadline is not None:
+        local_deadline = min(local_deadline, deadline)
+        settings['time_limit_s'] = max(0, local_deadline - started)
+    runner = lambda source, timeout: _run_once(client, buggy_image, source, runs=folder.parent, timeout=timeout)
+    reduced = minimize(candidate_path, record, runner, DeterministicSymptomChecker(), settings)
+    details = {k: v for k, v in asdict(reduced).items() if k != 'source'}
+    verification = None
+    if reduced.status not in ('skipped', 'unchanged') and reduced.source != original:
+        verification = verify(record, reduced.source, buggy_image, client, runs=folder.parent,
+                              fixed_image=fixed_image, fixed_ref=fixed_ref,
+                              deadline=local_deadline)
+        ranks = {None: 0, 'low': 1, 'medium': 2, 'high': 3}
+        final_runs = verification['checks']['repeated_runs']['runs']
+        valid = (verification['status'] == 'reproduced' and
+                 ranks[verification['confidence']] >= ranks.get(data.get('confidence'), 0) and
+                 all(run.get('failure') == expected for run in final_runs))
+        if valid:
+            _atomic_write(candidate_path, reduced.source)
+            data.update(verification)
+        else:
+            details['status'] = 'failed_verification'
+            details['final_lines'] = details['original_lines']
+    data['minimization'] = details
+    if verification is not None:
+        data['minimization']['final_verification'] = verification
+    _atomic_write(result_path, (json.dumps(data, indent=2) + '\n').encode('utf-8'))
+    return data

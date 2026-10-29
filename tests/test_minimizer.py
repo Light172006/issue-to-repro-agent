@@ -47,3 +47,24 @@ def test_different_exception_cannot_replace_original(tmp_path):
         return SimpleNamespace(exit_code=1, output=output, timed_out=False)
     result = minimize(path, ISSUE, runner, DeterministicSymptomChecker(), {})
     assert b'necessary = 1' in result.source
+
+
+def test_final_verification_failure_keeps_original(tmp_path, monkeypatch):
+    import hashlib
+    import json
+
+    from repro import verifier
+    from repro.minimizer import minimize_run
+    original = b'def test_x():\n    unused = 1\n    raise ValueError("bad")\n'
+    (tmp_path / 'test_repro.py').write_bytes(original)
+    (tmp_path / 'result.json').write_text(json.dumps({'status': 'reproduced', 'verification': 'completed',
+        'confidence': 'high', 'candidate_sha256': hashlib.sha256(original).hexdigest(),
+        'checks': {'repeated_runs': {'runs': [{'failure': ['ValueError', 'ValueError: bad', 'library.py:broken']}]},
+                   'fixed_version': {'passed': True}}}))
+    monkeypatch.setattr(verifier, '_run_once', lambda *a, **kw: SimpleNamespace(exit_code=1, output=OUTPUT, timed_out=False))
+    monkeypatch.setattr(verifier, 'verify', lambda *a, **kw: {'status': 'not_reproduced', 'confidence': None,
+        'checks': {'repeated_runs': {'runs': []}}})
+    result = minimize_run(tmp_path, ISSUE, None, 'fake', fixed_image='fixed')
+    assert result['minimization']['status'] == 'failed_verification'
+    assert (tmp_path / 'test_repro.py').read_bytes() == original
+    assert (tmp_path / 'test_repro.orig.py').read_bytes() == original
