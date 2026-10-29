@@ -1,0 +1,157 @@
+{
+  "outcome": "candidate_found",
+  "repro_path": "/work/repro/test_repro.py",
+  "verdict": "exact",
+  "steps": 8,
+  "cost_usd": "0.03205825",
+  "duration": 22.64099999999962,
+  "stalled": false,
+  "reason": null,
+  "status": "reproduced",
+  "confidence": "high",
+  "checks": {
+    "symptom_match": "exact",
+    "repeated_runs": {
+      "consistent": true,
+      "runs": [
+        {
+          "exit_code": 1,
+          "timed_out": false,
+          "verdict": "exact",
+          "failure": [
+            "AttributeError",
+            "AttributeError: 'OrderedMultiDict' object has no attribute 'root'",
+            "dictutils.py:_insert"
+          ]
+        },
+        {
+          "exit_code": 1,
+          "timed_out": false,
+          "verdict": "exact",
+          "failure": [
+            "AttributeError",
+            "AttributeError: 'OrderedMultiDict' object has no attribute 'root'",
+            "dictutils.py:_insert"
+          ]
+        },
+        {
+          "exit_code": 1,
+          "timed_out": false,
+          "verdict": "exact",
+          "failure": [
+            "AttributeError",
+            "AttributeError: 'OrderedMultiDict' object has no attribute 'root'",
+            "dictutils.py:_insert"
+          ]
+        },
+        {
+          "exit_code": 1,
+          "timed_out": false,
+          "verdict": "exact",
+          "failure": [
+            "AttributeError",
+            "AttributeError: 'OrderedMultiDict' object has no attribute 'root'",
+            "dictutils.py:_insert"
+          ]
+        },
+        {
+          "exit_code": 1,
+          "timed_out": false,
+          "verdict": "exact",
+          "failure": [
+            "AttributeError",
+            "AttributeError: 'OrderedMultiDict' object has no attribute 'root'",
+            "dictutils.py:_insert"
+          ]
+        }
+      ]
+    },
+    "fixed_version": {
+      "ref": "24.0.0",
+      "passed": true,
+      "exit_code": 0,
+      "timed_out": false
+    }
+  },
+  "verification": "completed",
+  "status_detail": "Independent verification passed",
+  "test_file": "test_repro.py",
+  "candidate_sha256": "516349c8dc382594ab4e598bc29f66cb9d625082858e4159a01607e68fd26ec8",
+  "minimization": {
+    "status": "minimized",
+    "original_lines": 7,
+    "final_lines": 6,
+    "runs": 27,
+    "duration_s": 20.46900000000005,
+    "final_verification": {
+      "status": "reproduced",
+      "confidence": "high",
+      "verification": "completed",
+      "checks": {
+        "symptom_match": "exact",
+        "repeated_runs": {
+          "consistent": true,
+          "runs": [
+            {
+              "exit_code": 1,
+              "timed_out": false,
+              "verdict": "exact",
+              "failure": [
+                "AttributeError",
+                "AttributeError: 'OrderedMultiDict' object has no attribute 'root'",
+                "dictutils.py:_insert"
+              ]
+            },
+            {
+              "exit_code": 1,
+              "timed_out": false,
+              "verdict": "exact",
+              "failure": [
+                "AttributeError",
+                "AttributeError: 'OrderedMultiDict' object has no attribute 'root'",
+                "dictutils.py:_insert"
+              ]
+            },
+            {
+              "exit_code": 1,
+              "timed_out": false,
+              "verdict": "exact",
+              "failure": [
+                "AttributeError",
+                "AttributeError: 'OrderedMultiDict' object has no attribute 'root'",
+                "dictutils.py:_insert"
+              ]
+            },
+            {
+              "exit_code": 1,
+              "timed_out": false,
+              "verdict": "exact",
+              "failure": [
+                "AttributeError",
+                "AttributeError: 'OrderedMultiDict' object has no attribute 'root'",
+                "dictutils.py:_insert"
+              ]
+            },
+            {
+              "exit_code": 1,
+              "timed_out": false,
+              "verdict": "exact",
+              "failure": [
+                "AttributeError",
+                "AttributeError: 'OrderedMultiDict' object has no attribute 'root'",
+                "dictutils.py:_insert"
+              ]
+            }
+          ]
+        },
+        "fixed_version": {
+          "ref": "24.0.0",
+          "passed": true,
+          "exit_code": 0,
+          "timed_out": false
+        }
+      },
+      "candidate_sha256": "516349c8dc382594ab4e598bc29f66cb9d625082858e4159a01607e68fd26ec8"
+    }
+  }
+}
