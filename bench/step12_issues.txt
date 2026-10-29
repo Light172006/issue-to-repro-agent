@@ -1,0 +1,9 @@
+# Escalation tuning only. Exclude these issues and their libraries from the final held-out benchmark.
+# tier C
+https://github.com/python-humanize/humanize/issues/57
+# tier C
+https://github.com/mahmoud/boltons/issues/337
+# tier M
+https://github.com/dgilland/pydash/issues/153
+# tier H
+https://github.com/python-attrs/attrs/issues/1348

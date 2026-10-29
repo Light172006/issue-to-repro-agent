@@ -1,0 +1,149 @@
+[
+  {
+    "url": "https://github.com/python-humanize/humanize/issues/57",
+    "library": "python-humanize/humanize",
+    "tier": "C",
+    "symptom": {
+      "kind": "exception",
+      "type": "ValueError",
+      "file": "number.py",
+      "function": "metric"
+    },
+    "reported_version": "4.3.0",
+    "reported_version_tag": "4.3.0",
+    "older_ref": "dab62bfbc9ac4cd9e5d558b38723d31d453c37da",
+    "newer_ref": "b1ee6875820839a59f1b6f4a5fedc7cad8883834",
+    "python_used": "3.11.17",
+    "install_command": "uv pip install --python .venv/bin/python -e '.[tests]' 'pytest==7.4.4' 'pytest-cov<5'",
+    "snippet": "import humanize\nhumanize.metric(0)\n",
+    "observed_older": "ValueError: math domain error at humanize/number.py:metric",
+    "observed_newer": "No exception; printing the call returned '0.00'.",
+    "suite_older": {
+      "passed": 444,
+      "failed": 0,
+      "skipped": 23,
+      "seconds": 1.28,
+      "failures": [],
+      "command": "python -m pytest --cov humanize --cov tests -q"
+    },
+    "why_this_tier": "The report gives the exact single call and traceback; a good control for unnecessary escalation.",
+    "risks": [
+      "pytest 7.4.4 and pytest-cov below 5 were used; 23 suite tests skipped."
+    ],
+    "note": "Escalation tuning only; exclude these issues and their libraries from the final held-out benchmark."
+  },
+  {
+    "url": "https://github.com/mahmoud/boltons/issues/337",
+    "library": "mahmoud/boltons",
+    "tier": "C",
+    "symptom": {
+      "kind": "exception",
+      "type": "AttributeError",
+      "file": "dictutils.py",
+      "function": "_insert"
+    },
+    "reported_version": "23.0.0",
+    "reported_version_tag": "23.0.0",
+    "older_ref": "475462811ea4f9dea23c8af4cc2b6ead2dc03845",
+    "newer_ref": "0341ab3d79e6430c0e6a4149df9c92679988a534",
+    "python_used": "3.11.17",
+    "install_command": "uv pip install --python .venv/bin/python -e . 'pytest==7.4.4'",
+    "snippet": "import pickle\nimport boltons.dictutils\npickle.loads(pickle.dumps(boltons.dictutils.OMD({'a': 1})))\n",
+    "observed_older": "AttributeError: 'OrderedMultiDict' object has no attribute 'root' at boltons/dictutils.py:_insert",
+    "observed_newer": "No exception; printing the call returned OrderedMultiDict([('a', 1)]).",
+    "suite_older": {
+      "passed": 558,
+      "failed": 1,
+      "skipped": 0,
+      "seconds": 1.12,
+      "failures": [
+        {
+          "test": "boltons/strutils.py::boltons.strutils.html2text",
+          "reason": "AttributeError: 'HTMLTextExtractor' object has no attribute 'scripting'; the same doctest fails with the same error at fix commit 0341ab3 and older tag 23.0.0. It tests HTML-to-text conversion, not OrderedMultiDict pickling."
+        }
+      ],
+      "command": "python -m pytest --doctest-modules -q boltons tests"
+    },
+    "why_this_tier": "The issue provides the exact nonempty object and traceback; this previously served as the project control.",
+    "risks": [
+      "The fix parent identifies itself as 23.0.1.dev0; reported tag 23.0.0 is an ancestor.",
+      "Pytest 9.2 failed at plugin collection; pytest 7.4.4 was used."
+    ],
+    "note": "Escalation tuning only; exclude these issues and their libraries from the final held-out benchmark."
+  },
+  {
+    "url": "https://github.com/dgilland/pydash/issues/153",
+    "library": "dgilland/pydash",
+    "tier": "M",
+    "symptom": {
+      "kind": "exception",
+      "type": "AttributeError",
+      "file": "helpers.py",
+      "function": "base_set"
+    },
+    "reported_version": "4.8.0",
+    "reported_version_tag": "v4.8.0",
+    "older_ref": "4268be200fd85c0fcb7a24ea1b25619f5b1db3eb",
+    "newer_ref": "effee136d59c56e6f4dfa8b4a3b484ac4d440d40",
+    "python_used": "3.11.17",
+    "install_command": "uv pip install --python .venv/bin/python -e '.[dev]' pytest",
+    "snippet": "import pydash\npydash.set_({'a': {'b.0': {}}}, r'a.b\\.0.c', 42)\n",
+    "observed_older": "AttributeError: 'NoneType' object has no attribute 'c' at pydash/helpers.py:base_set",
+    "observed_newer": "No exception; printing the call returned {'a': {'b.0': {'c': 42}}}.",
+    "suite_older": {
+      "passed": 2114,
+      "failed": 1,
+      "skipped": 1,
+      "seconds": 4.99,
+      "command": "python -m pytest -q --cov=src/pydash src/pydash tests",
+      "failures": [
+        {
+          "test": "tests/test_collections.py::test_map_[case8-expected8-False]",
+          "reason": "TypeError: itemgetter expected 1 argument, got 3; the same named test fails with the same error on fix commit effee136 and older v4.8.0. It exercises map/itemgetter rather than set_ path handling."
+        }
+      ]
+    },
+    "why_this_tier": "The call is given, but the escaped dot and nested mapping shape must be preserved; an agent may try ordinary paths instead.",
+    "risks": [
+      "The fix is a merge commit; older_ref is its first parent.",
+      "The documented dev extra installed many optional tools, including binary wheels."
+    ],
+    "note": "Escalation tuning only; exclude these issues and their libraries from the final held-out benchmark."
+  },
+  {
+    "url": "https://github.com/python-attrs/attrs/issues/1348",
+    "library": "python-attrs/attrs",
+    "tier": "H",
+    "symptom": {
+      "kind": "exception",
+      "type": "TypeError",
+      "file": "converters.py",
+      "function": "optional_converter"
+    },
+    "reported_version": "24.2.0",
+    "reported_version_tag": "24.2.0",
+    "older_ref": "ee0f19b696c60064c58cdc08b3265aef56d49ff8",
+    "newer_ref": "e21793e90a25c7ea47a9c0369150067cc8322de0",
+    "python_used": "3.11.17",
+    "install_command": "uv pip install --python .venv/bin/python -e '.[tests]' 'pytest==7.4.4'; uv pip install --python .venv/bin/python 'mypy==1.11.1'",
+    "snippet": "import attr\n@attr.define\nclass A:\n    abc: int | None = attr.field(converter=attr.converters.optional(attr.converters.pipe(str, int)), default=None)\nprint(A())\nprint(A('1'))\n",
+    "observed_older": "A(abc=None), then TypeError: Converter.__init__.<locals>.<lambda>() missing 2 required positional arguments: 'instance' and 'field' at attr/converters.py:optional_converter",
+    "observed_newer": "A(abc=None) followed by A(abc=1), without an exception.",
+    "suite_older": {
+      "passed": 1414,
+      "failed": 0,
+      "skipped": 4,
+      "xfailed": 1,
+      "seconds": 31.36,
+      "failures": [],
+      "command": "PATH=\".venv/bin:$PATH\" python -m pytest -q tests"
+    },
+    "why_this_tier": "The failure depends on composing optional and pipe converters and passing a non-None value; the call is indirect through generated initialization.",
+    "risks": [
+      "The fix parent identifies itself as 24.2.1.dev36; reported tag 24.2.0 is an ancestor.",
+      "Test dependencies included prebuilt binary wheels; pytest 7.4.4 and mypy 1.11.1 were used.",
+      "Tier H is uncertain because the report provides a complete reproducer."
+    ],
+    "note": "Escalation tuning only; exclude these issues and their libraries from the final held-out benchmark."
+  }
+]
