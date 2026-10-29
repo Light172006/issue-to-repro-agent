@@ -48,7 +48,9 @@ def _failed_result(budget: Budget | None, outcome: str, reason: str) -> AgentRes
 
 
 @app.command()
-def main(issue_url: str, no_minimize: bool = typer.Option(False, '--no-minimize')) -> None:
+def main(issue_url: str, no_minimize: bool = typer.Option(False, '--no-minimize'),
+         no_escalation: bool = typer.Option(False, '--no-escalation'),
+         force_escalate_at_step: int | None = typer.Option(None, '--force-escalate-at-step', hidden=True, min=1)) -> None:
     """Fetch ISSUE_URL and attempt an offline reproduction."""
     key = os.environ.get('META_MODEL_API_KEY')
     if not key:
@@ -61,6 +63,8 @@ def main(issue_url: str, no_minimize: bool = typer.Option(False, '--no-minimize'
     budget = None
     try:
         limits = load_config(config / 'limits.yaml')
+        if no_escalation:
+            limits.setdefault('escalation', {})['enabled'] = False
         models = load_config(config / 'models.yaml')
         model = load_config(config / 'parser.yaml')['default_model']
         budget = Budget(runs / 'spend.sqlite', limits)
@@ -109,7 +113,8 @@ def main(issue_url: str, no_minimize: bool = typer.Option(False, '--no-minimize'
                 result = run_agent(record, tools, provider=provider, budget=budget,
                                    model_config=models, model=model,
                                    trace_path=str(folder / 'trace.jsonl'),
-                                   tool_schemas=tool_schemas())
+                                   tool_schemas=tool_schemas(),
+                                   force_escalate_at_step=force_escalate_at_step)
             result = replace(result, duration=budget.clock() - budget.started)
             try:
                 written = write_run_artifacts(folder, result)

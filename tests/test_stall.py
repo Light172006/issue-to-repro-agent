@@ -40,3 +40,9 @@ def test_successful_boltons_trace_does_not_stall():
     steps = [json.loads(line) for line in path.read_text().splitlines()]
     for count in range(1, len(steps) + 1):
         assert not detect_stall(steps[:count], {}).stalled
+
+
+def test_repeated_command_timeouts_are_infrastructure():
+    steps = [step(arguments={'command': str(i)}, output='Error: command timed out', error=None) for i in range(4)]
+    result = detect_stall(steps, {})
+    assert result.infrastructure and result.reason == 'repeated_timeout'

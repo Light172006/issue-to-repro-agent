@@ -59,8 +59,11 @@ def detect_stall(history: list[dict[str, Any]], config: dict[str, Any]) -> Stall
     steps = [item for item in history if isinstance(item, dict) and item.get('tool')]
     if len(steps) < int(config.get('min_steps', 4)):
         return StallVerdict(False)
-    errors = [_error(step) for step in steps]
     threshold = max(2, int(config.get('repeat_error_threshold', 3)))
+    if len(steps) >= threshold and all('command timed out' in str(step.get('output', '')).lower()
+                                       for step in steps[-threshold:]):
+        return StallVerdict(True, 'repeated_timeout', (str(threshold),), True)
+    errors = [_error(step) for step in steps]
     recent = errors[-threshold:]
     if len(recent) == threshold and recent[0] and all(error == recent[0] for error in recent):
         text = ' '.join(str(step.get('output', '')) for step in steps[-threshold:])
