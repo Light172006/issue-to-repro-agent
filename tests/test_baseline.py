@@ -112,7 +112,7 @@ def test_builder_records_offline_baseline(tmp_path, monkeypatch):
     saved = json.loads((tmp_path / 'environment.json').read_text())
     assert saved['baseline'] == metadata['baseline']
     assert saved['resolved_packages'] == []
-    assert saved['resolution']['strategy'] == 'unbounded_latest'
+    assert saved['resolution']['strategy'] == 'unknown'
     assert saved['baseline']['failures'][0]['pre_existing'] is True
     assert sandbox.run.call_count == 2
 

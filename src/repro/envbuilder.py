@@ -89,10 +89,9 @@ git -c init.templateDir= -c core.hooksPath=/dev/null init /var/tmp/repro/source
 git -C /var/tmp/repro/source -c protocol.file.allow=never fetch --depth=1 --no-tags "$1" "$2"
 git -C /var/tmp/repro/source -c core.hooksPath=/dev/null checkout --detach FETCH_HEAD
 test "$(git -C /var/tmp/repro/source rev-parse HEAD)" = "$2"
-python -m venv /var/tmp/repro/venv
-shift 2
-/var/tmp/repro/venv/bin/python -m pip install --disable-pip-version-check --no-cache-dir /var/tmp/repro/source pytest "$@"
-/var/tmp/repro/venv/bin/python -m pip freeze > /var/tmp/repro/packages.txt
+installer="$3"
+shift 3
+python -c "$installer" "$@"
 ''' 
 
 
@@ -111,7 +110,10 @@ class EnvironmentBuilder:
             raise ValueError('Test dependencies must be simple package requirements')
         sha, selected = resolve_commit(repo, version, self.http)
         base = self.docker.images.get(self.base_image)
-        digest = hashlib.sha256(json.dumps([repo.lower(), sha, base.id, 'builder-v3-var-tmp', test_dependencies]).encode()).hexdigest()[:32]
+        installer = Path(__file__).with_name('installenv.py').read_text(encoding='utf-8')
+        installer_digest = hashlib.sha256(installer.encode()).hexdigest()
+        digest = hashlib.sha256(json.dumps([repo.lower(), sha, base.id, 'builder-v4-date-resolution',
+                                             installer_digest, test_dependencies]).encode()).hexdigest()[:32]
         image_tag = f'issue-repro-env:{digest}'
         cache_hit = True
         try:
@@ -124,7 +126,8 @@ class EnvironmentBuilder:
             owner, name, _ = parse_issue_url(f'https://github.com/{repo}/issues/1')
             url = f'https://github.com/{owner}/{name}.git'
             container = self.docker.containers.create(
-                base.id, command=['sh', '-c', SETUP, 'setup', url, sha, *test_dependencies], user='65534:65534',
+                base.id, command=['sh', '-c', SETUP, 'setup', url, sha, installer,
+                                  *test_dependencies], user='65534:65534',
                 network_mode='bridge', mem_limit='1g', nano_cpus=1_000_000_000,
                 pids_limit=256, cap_drop=['ALL'], security_opt=['no-new-privileges:true'],
                 environment={'HOME': '/tmp', 'PIP_NO_INPUT': '1'}, use_config_proxy=False, init=True,
@@ -147,7 +150,7 @@ class EnvironmentBuilder:
         with Sandbox(image=image_tag, client=self.docker, max_timeout=60,
                      working_dir='/var/tmp/repro/source') as sandbox:
             result = sandbox.run(['/var/tmp/repro/venv/bin/python', '-c',
-                "import json,platform; print(json.dumps({'python':platform.python_version(),'packages':open('/var/tmp/repro/packages.txt').read().splitlines()}))"])
+                "import json,platform; print(json.dumps({'python':platform.python_version(),'packages':open('/var/tmp/repro/packages.txt').read().splitlines(),'resolution':json.load(open('/var/tmp/repro/resolution.json'))}))"])
         if result.timed_out or result.exit_code != 0:
             raise BuildError('Unable to inspect built environment: ' + result.output[-2000:])
         details = json.loads(result.output)
@@ -155,8 +158,8 @@ class EnvironmentBuilder:
                     'used_default_branch': version is None, 'commit': sha, 'base_image_id': base.id,
                     'image': image_tag, 'image_id': image.id, 'cache_hit': cache_hit, 'test_dependencies': test_dependencies, **details}
         metadata['resolved_packages'] = list(details['packages'])
-        metadata['resolution'] = {'strategy': 'unbounded_latest', 'reason_for_fallback': None,
-                                  'cutoff': None, 'install_duration_s': None}
+        metadata['resolution'] = details.get('resolution', {'strategy': 'unknown', 'reason_for_fallback': None,
+                                                            'cutoff': None, 'install_duration_s': None})
         # Baseline runs in the same offline, non-root environment as later tests.
         try:
             remaining = min(300, timeout - (time.monotonic() - started))
