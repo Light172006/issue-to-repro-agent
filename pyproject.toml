@@ -22,3 +22,12 @@ where = ["src"]
 testpaths = ["tests"]
 markers = ["docker: requires a local Docker daemon", "network: requires access to an external service"]
 
+[tool.ruff.lint.per-file-ignores]
+# Saved reproductions are immutable evidence of the original agent output.
+"examples/v0.2-boltons/test_repro.py" = ["I001"]
+"proof/v0.3/test_repro.orig.py" = ["I001"]
+"proof/v0.3/test_repro.py" = ["I001", "F841"]
+# These fixtures intentionally contain unused imports and verbose code to minimize.
+"tests/fixtures/minimizer/bloated.py" = ["I001", "F401", "PERF402"]
+"tests/fixtures/minimizer/boltons_bloated.py" = ["I001", "F401"]
+
