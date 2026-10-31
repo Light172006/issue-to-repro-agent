@@ -47,7 +47,8 @@ def _run_once(client, image: str, candidate: bytes, *, runs: Path, timeout: floa
 
 def verify(issue: IssueRecord, candidate: bytes, buggy_image: str, client, *,
            runs: Path, fixed_image: str | None = None, fixed_ref: str | None = None,
-           timeout: float = 60, deadline: float | None = None, runner=_run_once) -> dict:
+           timeout: float = 60, deadline: float | None = None, runner=_run_once,
+           baseline: dict | None = None) -> dict:
     """Run five independent checks and optionally compare a fixed image.
 
     A fixed image must be selected by the caller; it is never inferred from a
@@ -57,7 +58,7 @@ def verify(issue: IssueRecord, candidate: bytes, buggy_image: str, client, *,
     """
     if not candidate or len(candidate) > 65536:
         raise ValueError('Candidate must be nonempty and at most 65536 bytes')
-    checker = DeterministicSymptomChecker()
+    checker = DeterministicSymptomChecker(baseline=baseline or {'status': 'unavailable'})
     observations = []
     fingerprints = []
     for _ in range(5):

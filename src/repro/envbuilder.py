@@ -7,9 +7,11 @@ import json
 import os
 import re
 import tempfile
+import time
 from contextlib import closing
 from pathlib import Path
 
+from repro.baseline import baseline_from_result
 from repro.github import parse_issue_url
 from repro.sandbox import Sandbox, _is_wait_timeout
 
@@ -101,6 +103,7 @@ class EnvironmentBuilder:
         self.base_image = base_image
 
     def build(self, repo: str, version: str | None, output_dir: str | Path, *, timeout: int = 600, test_dependencies: list[str] | None = None) -> dict:
+        started = time.monotonic()
         if not 0 < timeout <= 900:
             raise ValueError('Build timeout must be between 0 and 900 seconds')
         test_dependencies = list(test_dependencies or [])
@@ -151,6 +154,19 @@ class EnvironmentBuilder:
         metadata = {'repo': repo, 'requested_version': version, 'selected_ref': selected,
                     'used_default_branch': version is None, 'commit': sha, 'base_image_id': base.id,
                     'image': image_tag, 'image_id': image.id, 'cache_hit': cache_hit, 'test_dependencies': test_dependencies, **details}
+        # Baseline runs in the same offline, non-root environment as later tests.
+        try:
+            remaining = min(300, timeout - (time.monotonic() - started))
+            if remaining <= 0:
+                metadata['baseline'] = {'status': 'timeout', 'counts': None, 'failures': []}
+            else:
+                with Sandbox(image=image_tag, client=self.docker, max_timeout=remaining,
+                         working_dir='/var/tmp/repro/source') as sandbox:
+                    result = sandbox.run(['/var/tmp/repro/venv/bin/python', '-m', 'pytest',
+                                          '-ra', '-p', 'no:cacheprovider'], timeout=remaining)
+                metadata['baseline'] = baseline_from_result(result)
+        except Exception:  # noqa: BLE001 - record an inconclusive baseline without leaking output.
+            metadata['baseline'] = {'status': 'runner_error', 'counts': None, 'failures': []}
         _write_json(Path(output_dir) / 'environment.json', metadata)
         return metadata
 

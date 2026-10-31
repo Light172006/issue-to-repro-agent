@@ -27,7 +27,8 @@ def run(sequence, fixed=False, issue=ISSUE):
         return value
     data = verify(issue, b'def test_x(): pass', 'buggy', None, runs=Path('runs'),
                   fixed_image='fixed' if fixed else None, fixed_ref='2.0' if fixed else None,
-                  runner=runner)
+                  runner=runner, baseline={'status': 'complete',
+                                           'counts': {'passed': 1, 'failed': 0, 'skipped': 0}, 'failures': []})
     return data, calls
 
 

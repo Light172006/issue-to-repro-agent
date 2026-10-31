@@ -287,9 +287,10 @@ def minimize_run(folder, record, client, buggy_image, *, fixed_image=None,
     details = {k: v for k, v in asdict(reduced).items() if k != 'source'}
     verification = None
     if reduced.status != 'skipped':
+        from repro.baseline import load_baseline
         verification = verify(record, reduced.source, buggy_image, client, runs=folder.parent,
                               fixed_image=fixed_image, fixed_ref=fixed_ref,
-                              deadline=local_deadline)
+                              deadline=local_deadline, baseline=load_baseline(folder / 'environment.json'))
         if old_fixed and old_fixed.get('commit') and verification['checks']['fixed_version'] is not None:
             verification['checks']['fixed_version']['commit'] = old_fixed['commit']
         ranks = {None: 0, 'low': 1, 'medium': 2, 'high': 3}

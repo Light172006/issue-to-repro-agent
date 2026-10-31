@@ -74,7 +74,8 @@ def main() -> int:
                 if buggy['commit'] == fixed['commit']:
                     raise ValueError('Buggy and fixed references resolve to the same commit')
                 result = verify(issue, candidate, buggy['image'], dc, runs=runs,
-                                fixed_image=fixed['image'], fixed_ref=fixed['selected_ref'])
+                                fixed_image=fixed['image'], fixed_ref=fixed['selected_ref'],
+                                baseline=buggy.get('baseline'))
                 result.update({'issue_url': f'https://github.com/{issue.repo}/issues/{issue.issue}',
                                'buggy_commit': buggy['commit'], 'fixed_commit': fixed['commit'],
                                'source': 'hand-written from issue; not agent-generated'})

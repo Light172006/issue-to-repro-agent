@@ -49,9 +49,8 @@ def baseline_recorded(metadata: dict, expected_names: list[str]) -> str:
     for value in recorded:
         if isinstance(value, list):
             for item in value:
-                if isinstance(item, str):
-                    values.add(item)
-                elif isinstance(item, dict) and isinstance(item.get('test'), str):
+                if (isinstance(item, dict) and item.get('pre_existing') is True and
+                        isinstance(item.get('test'), str)):
                     values.add(item['test'])
     return 'yes' if all(name in values for name in expected_names) else 'NOT RECORDED'
 

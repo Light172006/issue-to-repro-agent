@@ -109,7 +109,10 @@ def main(issue_url: str, no_minimize: bool = typer.Option(False, '--no-minimize'
                 sandbox = Sandbox(image=environment['image'], client=dc, max_timeout=60,
                                   working_dir='/var/tmp/repro/source',
                                   writable_mount=folder / 'repro')
-                tools = SandboxTools(sandbox, record)
+                from repro.matcher import DeterministicSymptomChecker
+                baseline = environment.get('baseline', {'status': 'unavailable'})
+                tools = SandboxTools(sandbox, record,
+                    checker=DeterministicSymptomChecker(baseline=baseline))
                 result = run_agent(record, tools, provider=provider, budget=budget,
                                    model_config=models, model=model,
                                    trace_path=str(folder / 'trace.jsonl'),
@@ -130,7 +133,8 @@ def main(issue_url: str, no_minimize: bool = typer.Option(False, '--no-minimize'
                     with closing(docker.from_env()) as verify_client:
                         verification = verify(record, (folder / 'test_repro.py').read_bytes(),
                                               environment['image'], verify_client, runs=runs,
-                                              deadline=budget.started + float(limits['max_seconds']))
+                                              deadline=budget.started + float(limits['max_seconds']),
+                                              baseline=baseline)
                     written = save_verification(folder, verification)
                     typer.echo(f'Verification: {written["status"]}; confidence: {written["confidence"]}')
                     settings = limits.get('minimizer', {})

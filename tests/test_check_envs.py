@@ -25,7 +25,8 @@ def test_truncated_and_missing_summary_are_unknown():
 def test_baseline_metadata_requires_explicit_failure_field():
     name = 'tests/test_a.py::test_a'
     assert baseline_recorded({'packages': [name]}, [name]) == 'NOT RECORDED'
-    assert baseline_recorded({'baseline': {'failures': [{'test': name}]}}, [name]) == 'yes'
+    assert baseline_recorded({'baseline': {'failures': [{'test': name}]}}, [name]) == 'NOT RECORDED'
+    assert baseline_recorded({'baseline': {'failures': [{'test': name, 'pre_existing': True}]}}, [name]) == 'yes'
     assert baseline_recorded({}, []) == 'not applicable'
 
 

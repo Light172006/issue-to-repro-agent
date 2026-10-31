@@ -86,7 +86,8 @@ def main() -> int:
                     raise ValueError('Fixed and buggy versions resolve to the same commit')
             checks = verify(issue, candidate, env['image'], dc, runs=folder.parent,
                             fixed_image=fixed['image'] if fixed else None,
-                            fixed_ref=fixed['selected_ref'] if fixed else None, deadline=deadline)
+                            fixed_ref=fixed['selected_ref'] if fixed else None, deadline=deadline,
+                            baseline=env.get('baseline'))
             if fixed:
                 checks['checks']['fixed_version']['commit'] = fixed['commit']
             saved = save_verification(folder, checks)

@@ -77,7 +77,15 @@ def _literal(value: str) -> tuple[type, object]:
 class DeterministicSymptomChecker:
     """Conservative matcher; no model is consulted and no confidence is inferred."""
 
+    def __init__(self, baseline: dict | None = None):
+        self.baseline = baseline
+
     def check(self, issue: IssueRecord, output: str) -> SymptomMatch:
+        if self.baseline is not None:
+            from repro.baseline import baseline_rejection
+            reason = baseline_rejection(self.baseline, output)
+            if reason:
+                return SymptomMatch('none', reason)
         symptom = issue.symptom
         if symptom.kind == 'wrong_output':
             if issue.actual is None or issue.expected is None:
