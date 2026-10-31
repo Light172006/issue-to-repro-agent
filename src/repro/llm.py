@@ -3,13 +3,14 @@ from __future__ import annotations
 
 import json
 import sqlite3
-import time
 import threading
-from functools import wraps
+import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from decimal import Decimal
+from functools import wraps
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 
 class BudgetExceeded(RuntimeError):
@@ -47,9 +48,9 @@ class Budget:
     intentionally not released if a request fails or returns invalid usage.
     """
     def __init__(self, ledger: str | Path, limits: dict, clock: Callable = time.monotonic):
-        ceilings = {'max_steps': 25, 'max_run_usd': Decimal('1'),
-                    'max_seconds': 900, 'max_daily_usd': Decimal('5'),
-                    'max_total_usd': Decimal('120')}
+        ceilings = {'max_steps': 25, 'max_run_usd': Decimal(1),
+                    'max_seconds': 900, 'max_daily_usd': Decimal(5),
+                    'max_total_usd': Decimal(120)}
         for key, maximum in ceilings.items():
             value = Decimal(str(limits[key]))
             if not value.is_finite() or value <= 0 or value > maximum:
@@ -212,8 +213,8 @@ class OpenAIProvider:
         return count
 
     def complete(self, *, model, messages, tools, max_output_tokens, timeout, temperature=None, json_schema=None, reasoning_effort=None):
-        params = dict(model=model, input=messages, max_output_tokens=max_output_tokens,
-                      timeout=timeout, store=False)
+        params = {'model': model, 'input': messages, 'max_output_tokens': max_output_tokens,
+                  'timeout': timeout, 'store': False}
         if tools:
             params.update(tools=tools, parallel_tool_calls=False)
         if temperature is not None:
@@ -256,7 +257,7 @@ def call_model(*, provider, model: str, messages: list, tools: list | None,
     tools = json.loads(json.dumps(tools)) if tools else None
     if type(provider) is OpenAIProvider:
         minimum_prices = {'muse-spark-1.3': (Decimal('1.25'), Decimal('4.25')),
-                          'muse-wonder-1.0': (Decimal('4'), Decimal('20'))}
+                          'muse-wonder-1.0': (Decimal(4), Decimal(20))}
         if model not in minimum_prices:
             raise ValueError('Only configured Meta text models are supported')
         if (Decimal(str(cfg['input_per_million'])) < minimum_prices[model][0] or
@@ -280,7 +281,7 @@ def call_model(*, provider, model: str, messages: list, tools: list | None,
             if reasoning_effort is not None:
                 count_options['reasoning_effort'] = reasoning_effort
             count = provider.count(model=model, messages=messages, tools=tools, timeout=min(30, remaining), **count_options)
-        except Exception:
+        except Exception:  # noqa: BLE001 - provider errors can contain credentials.
             raise ProviderError('Provider token-count request failed') from None
         ceiling = count + max(128, (count + 99) // 100)
     elif type(provider) is FakeProvider:
@@ -307,7 +308,7 @@ def call_model(*, provider, model: str, messages: list, tools: list | None,
                 options['reasoning_effort'] = reasoning_effort
             message, inp, out = provider.complete(model=model, messages=messages, tools=tools,
                                                   max_output_tokens=max_output_tokens, timeout=remaining, **options)
-        except Exception:
+        except Exception:  # noqa: BLE001 - sanitize provider errors and retain the reservation.
             raise ProviderError('Provider generation request failed; reservation retained') from None
         if type(inp) is not int or type(out) is not int or inp < 0 or out < 0:
             raise UsageUnavailable('Provider returned missing or invalid token usage; reservation retained')

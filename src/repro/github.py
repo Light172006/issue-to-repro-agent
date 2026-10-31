@@ -2,12 +2,12 @@
 from __future__ import annotations
 
 import argparse
-import json
 import hashlib
+import json
 import os
 import re
 import tempfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -38,7 +38,7 @@ def _get_json(client, url: str, *, params=None):
         response = client.get(url, params=params)
         response.raise_for_status()
         return response.json()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - sanitize all client errors to avoid leaking tokens.
         # Avoid logging request headers or token-bearing exception text.
         status = getattr(getattr(exc, 'response', None), 'status_code', None)
         raise IssueFetchError(f'GitHub request failed (HTTP {status})' if status else 'GitHub request failed') from None
@@ -53,7 +53,7 @@ def fetch_issue(url: str, cache_dir: str | Path = '.cache/issues', *, token: str
     """
     owner, repo, number = parse_issue_url(url)
     cache_dir = Path(cache_dir)
-    cache_key = hashlib.sha256(f'{owner.lower()}/{repo.lower()}#{number}'.encode('utf-8')).hexdigest()
+    cache_key = hashlib.sha256(f'{owner.lower()}/{repo.lower()}#{number}'.encode()).hexdigest()
     cache_path = cache_dir / f'{cache_key}.json'
     if not refresh and cache_path.is_file():
         try:
@@ -101,7 +101,7 @@ def fetch_issue(url: str, cache_dir: str | Path = '.cache/issues', *, token: str
                   'title': issue.get('title', ''), 'body': body,
                   'labels': [label['name'] for label in issue.get('labels', []) if isinstance(label, dict) and 'name' in label],
                   'comments': comments, 'linked_urls': links,
-                  'fetched_at': datetime.now(timezone.utc).isoformat()}
+                  'fetched_at': datetime.now(UTC).isoformat()}
         cache_dir.mkdir(parents=True, exist_ok=True)
         tmp = None
         try:

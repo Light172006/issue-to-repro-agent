@@ -1,12 +1,13 @@
 import json
+import sys
 import tempfile
+import types
 import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
-import sys
-import types
 
 from repro.envbuilder import BuildError, _write_json, resolve_commit
+
 
 class ResolutionTests(unittest.TestCase):
     def test_prefers_v_tag_then_plain_tag(self):

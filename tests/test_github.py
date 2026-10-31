@@ -1,9 +1,10 @@
 import json
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 
 from repro.github import IssueFetchError, fetch_issue, parse_issue_url
+
 
 class Response:
     def __init__(self, data, fail=False): self.data, self.fail = data, fail

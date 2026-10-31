@@ -1,8 +1,16 @@
 import concurrent.futures
 import json
-from decimal import Decimal
+
 import pytest
-from repro.llm import Budget, BudgetExceeded, FakeProvider, UsageUnavailable, call_model, cost_nanos
+
+from repro.llm import (
+    Budget,
+    BudgetExceeded,
+    FakeProvider,
+    UsageUnavailable,
+    call_model,
+    cost_nanos,
+)
 
 LIMITS = {'max_steps': 25, 'max_run_usd': '1', 'max_seconds': 900, 'max_daily_usd': '5', 'max_total_usd': '120'}
 PRICES = {'fake': {'input_per_million': '1.25', 'output_per_million': '4.25', 'input_token_ceiling': 1000}}
@@ -98,7 +106,7 @@ def test_each_money_limit_blocks_overage(tmp_path, kind, limit):
     finally: b.close()
 
 def test_daily_rollover_preserves_total(tmp_path, monkeypatch):
-    import repro.llm as llm
+    from repro import llm
     days=iter(['2026-10-27','2026-10-28'])
     monkeypatch.setattr(llm.time, 'strftime', lambda *args: next(days))
     b=Budget(tmp_path/'ledger', {**LIMITS,'max_daily_usd':'0.01','max_total_usd':'0.02'})
@@ -132,6 +140,7 @@ def test_overrun_records_actual_and_stops_run(tmp_path):
 
 def test_count_receives_same_json_format_as_generation():
     import httpx
+
     from repro.llm import OpenAIProvider
     seen=[]
     def respond(request):

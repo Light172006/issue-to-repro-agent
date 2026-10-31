@@ -1,8 +1,10 @@
-import json
 import hashlib
-import pytest
+
 import httpx
+import pytest
+
 from repro.github import fetch_issue, parse_issue_url
+
 
 def client():
     def respond(req):
@@ -30,9 +32,8 @@ def test_cache_collision_same_owner_dashes(tmp_path):
 @pytest.mark.parametrize('status', [401,403,404,410,429,500])
 def test_http_failure_is_safe_and_does_not_cache(tmp_path,status):
     from repro.github import IssueFetchError
-    with httpx.Client(transport=httpx.MockTransport(lambda req:httpx.Response(status, request=req))) as c:
-        with pytest.raises(IssueFetchError,match=str(status)):
-            fetch_issue('https://github.com/a/b/issues/1', tmp_path, token='sentinel-secret', client=c)
+    with httpx.Client(transport=httpx.MockTransport(lambda req:httpx.Response(status, request=req))) as c, pytest.raises(IssueFetchError,match=str(status)):
+        fetch_issue('https://github.com/a/b/issues/1', tmp_path, token='sentinel-secret', client=c)
     assert list(tmp_path.iterdir()) == []
 
 def test_interrupted_write_leaves_no_cache(tmp_path, monkeypatch):
@@ -44,6 +45,7 @@ def test_interrupted_write_leaves_no_cache(tmp_path, monkeypatch):
 
 def test_http_error_does_not_leak_token_in_traceback(tmp_path):
     import traceback
+
     from repro.github import IssueFetchError
     secret='sentinel-github-token'
     class BrokenClient:

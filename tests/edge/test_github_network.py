@@ -1,5 +1,7 @@
 import pytest
+
 from repro.github import fetch_issue
+
 
 @pytest.mark.network
 def test_public_issue_live(tmp_path):

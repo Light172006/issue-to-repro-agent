@@ -1,6 +1,9 @@
 from unittest.mock import Mock
+
 import pytest
+
 from repro.sandbox import Sandbox
+
 
 def test_reuse_closed_sandbox_rejected():
     c = Mock(); box = Sandbox(client=c); box.close()

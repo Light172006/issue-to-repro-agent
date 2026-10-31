@@ -1,9 +1,10 @@
-import unittest
-from unittest.mock import Mock, patch
 import tempfile
+import unittest
 from pathlib import Path
+from unittest.mock import Mock, patch
 
 from repro.sandbox import Sandbox
+
 
 class SandboxTests(unittest.TestCase):
     def setUp(self):
@@ -15,7 +16,7 @@ class SandboxTests(unittest.TestCase):
 
     def test_run_is_nonroot_and_network_disabled(self):
         result = self.sandbox.run(['echo', 'hello'])
-        args, kwargs = self.client.containers.create.call_args
+        _args, kwargs = self.client.containers.create.call_args
         self.assertEqual(kwargs['network_mode'], 'none')
         self.assertEqual(kwargs['user'], '65534:65534')
         self.assertEqual(kwargs['cap_drop'], ['ALL'])

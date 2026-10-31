@@ -1,6 +1,9 @@
 from unittest.mock import Mock
+
 import pytest
+
 from repro.envbuilder import resolve_commit
+
 
 @pytest.mark.parametrize('version', ['', ' ', '../x', 'v1/../../x'])
 def test_empty_or_invalid_version_not_silent_default(version):

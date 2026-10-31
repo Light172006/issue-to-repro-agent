@@ -3,7 +3,13 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from repro.llm import Budget, BudgetExceeded, FakeProvider, UsageUnavailable, call_model, cost_nanos
+from repro.llm import (
+    Budget,
+    BudgetExceeded,
+    FakeProvider,
+    UsageUnavailable,
+    call_model,
+)
 
 LIMITS = {'max_steps': 2, 'max_run_usd': '1', 'max_seconds': 900, 'max_daily_usd': '5', 'max_total_usd': '120'}
 MODELS = {'fake': {'input_per_million': '1.25', 'output_per_million': '4.25', 'input_token_ceiling': 1000}}
@@ -58,8 +64,9 @@ class ModelTests(unittest.TestCase):
 
 class MetaPreflightTests(ModelTests):
     def test_real_adapter_preflights_and_reconciles(self):
-        from repro.llm import OpenAIProvider
         from unittest.mock import Mock
+
+        from repro.llm import OpenAIProvider
         provider = object.__new__(OpenAIProvider)
         provider.count = Mock(return_value=10)
         provider.complete = Mock(return_value=('hello', 10, 5))
@@ -86,6 +93,7 @@ class MetaPreflightTests(ModelTests):
 class EndpointTests(unittest.TestCase):
     def test_count_uses_exact_meta_url(self):
         import httpx
+
         from repro.llm import OpenAIProvider
         seen = []
         def handle(request):
@@ -104,6 +112,7 @@ if __name__ == '__main__': unittest.main()
 
 def test_real_adapter_accepts_paired_local_tool_history(tmp_path):
     from unittest.mock import Mock
+
     from repro.llm import Budget, OpenAIProvider, call_model
 
     limits = {'max_steps': 25, 'max_run_usd': 1, 'max_seconds': 900,

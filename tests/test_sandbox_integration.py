@@ -1,10 +1,12 @@
 """Opt-in: run with REPRO_DOCKER_TESTS=1 and a running Linux Docker daemon."""
 import os
 import unittest
+
 import pytest
 
 pytestmark = pytest.mark.docker
 from repro.sandbox import Sandbox
+
 
 @unittest.skipUnless(os.getenv('REPRO_DOCKER_TESTS') == '1', 'set REPRO_DOCKER_TESTS=1')
 class DockerIntegrationTests(unittest.TestCase):
