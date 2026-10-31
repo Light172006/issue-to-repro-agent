@@ -154,6 +154,9 @@ class EnvironmentBuilder:
         metadata = {'repo': repo, 'requested_version': version, 'selected_ref': selected,
                     'used_default_branch': version is None, 'commit': sha, 'base_image_id': base.id,
                     'image': image_tag, 'image_id': image.id, 'cache_hit': cache_hit, 'test_dependencies': test_dependencies, **details}
+        metadata['resolved_packages'] = list(details['packages'])
+        metadata['resolution'] = {'strategy': 'unbounded_latest', 'reason_for_fallback': None,
+                                  'cutoff': None, 'install_duration_s': None}
         # Baseline runs in the same offline, non-root environment as later tests.
         try:
             remaining = min(300, timeout - (time.monotonic() - started))
