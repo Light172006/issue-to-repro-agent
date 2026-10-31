@@ -18,3 +18,10 @@
 - Evidence manifest: 25 files before and after; identical SHA-256 of canonical manifest `d96cc2e79766c64e7723848bed8ec86c1e762c2f7174ee6a9ca37ffb508df0b1`. Common credential-shaped strings: zero matches in those 25 evidence files. This is not a comprehensive secret scan.
 - Docker collection found 8 tests: 7 unpaid (`docker and not network`) and one paid/network test. Owner reported all 7 unpaid tests passed before these baseline changes. Docker unavailable here; baseline integration, isolation and environment scripts have not been rerun.
 - Still open: real Docker baseline verification, collection output that cannot produce complete signatures, concurrent image builds, process/container cleanup, full history and generated-log secret scans, fake-provider dur-demo end-to-end regression and remaining fault-injection stress items. C1 is not complete. No model calls.
+
+## 2026-11-01 — C1 dependency discovery foundation (in progress)
+
+- Added a static, deterministic parser for a subset of declared extras, dependency groups, test requirements, tox dependencies and literal nox install arguments, plus pytest-cov detection. Nox input is parsed as Python syntax and never executed by this parser.
+- Python 3.11.17 offline suite, three runs: 255 passed, 10 deselected, 9 subtests passed each; Ruff 0.17.3 passed. New tests cover empty, invalid and large inputs, deterministic output, supported pins and data-only nox parsing.
+- Evidence manifest: 25 files before and after, both `d96cc2e79766c64e7723848bed8ec86c1e762c2f7174ee6a9ca37ffb508df0b1`.
+- This component is NOT connected to the production builder. Date-bounded resolution, safe fallback, complete dependency and plugin discovery, metadata changes, generalization checks and Docker validation remain unimplemented. No model calls. C1 remains incomplete.
