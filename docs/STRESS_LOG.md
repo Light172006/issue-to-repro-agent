@@ -25,3 +25,37 @@
 - Python 3.11.17 offline suite, three runs: 255 passed, 10 deselected, 9 subtests passed each; Ruff 0.17.3 passed. New tests cover empty, invalid and large inputs, deterministic output, supported pins and data-only nox parsing.
 - Evidence manifest: 25 files before and after, both `d96cc2e79766c64e7723848bed8ec86c1e762c2f7174ee6a9ca37ffb508df0b1`.
 - This component is NOT connected to the production builder. Date-bounded resolution, safe fallback, complete dependency and plugin discovery, metadata changes, generalization checks and Docker validation remain unimplemented. No model calls. C1 remains incomplete.
+
+## 2026-11-02 — C1 Windows bug fixes (in progress)
+
+- Catch-up review found two Windows-specific failures in the offline suite:
+  - BUG-1: `test_parallel_atomic_metadata_writes_are_valid` — `os.replace` raises `PermissionError` (WinError 5) on Windows under 40 concurrent threads. Fixed by adding a 3-attempt retry with 5 ms sleep on `win32` only; non-Windows and third attempt re-raise immediately. Production writes are always sequential.
+  - BUG-2: `test_date_bounded_install_records_commit_cutoff` — `Path('/repo')` evaluates to `'\\repo'` on Windows. `resolve_install` is container-only (Linux) code. Fixed by using `PurePosixPath('/repo')` in the test so `str()` always yields the POSIX form.
+- Python 3.11.9 (host), three offline runs after fix: 264 passed, 10 deselected, 9 subtests passed each. No flaky tests. Ruff 0.17.3: all checks passed.
+- These two tests passed previously (STRESS_LOG recorded 255 passed at last entry) because they were added between then and now but not caught as Windows-failing. They were always failing on Windows; the previous log entry was from a Linux-compatible runner.
+- Commit: `2a5cffd fix: retry os.replace on Windows and use PurePosixPath in installenv test`.
+- Still open from prior entries: testdeps wiring, real Docker baseline verification, secret scan, fake-provider end-to-end regression, fault injection, step 11 "done when" confirmation, HACKATHON.md update. No model calls.
+
+## 2026-11-02 — C1 test dependency discovery, isolation and Docker verification
+
+- Wired `testdeps.py` into both `envbuilder.py` (preflight discovery) and `installenv.py` (in-container disk-based discovery).
+  - Inside the build container, `installenv.py` discovers config files directly from `/var/tmp/repro/source` without requiring unauthenticated GitHub API calls, avoiding rate limits.
+  - Automatically identifies test extras (`tests`, `test`, `dev`, `testing`), package requirements, and pytest plugins (`pytest-cov`).
+  - Appends discovered extras to source spec (`source[tests]`), allowing tools like `uv` to resolve historical dependencies (e.g. `freezegun` for humanize, `hypothesis` for attrs).
+  - Records discovery metadata in `(root / 'discovery.json')` and merges into `environment.json`.
+- Secret scan across full git history and tracked files (`scripts/scan_secrets.py`):
+  - Checked for GitHub tokens (`ghp_`, `github_pat_`), OpenAI/Meta keys, bearer tokens, API keys.
+  - Result: 0 real credentials leaked. Only one synthetic mock token (`ghp_12345678901234567890`) in `tests/test_trace.py` for redaction testing.
+- Real Docker verification on Windows Docker Desktop:
+  - `scripts/check_isolation.py`: All 13 isolation and resource checks PASSED (non-root UID, virtualenv python, volume mount persistence, read-only root and source filesystem, blocked DNS and public IP, host localhost access blocked, host environment variables hidden, docker socket absent, timeout killing container, 50 MiB output bounded to head/tail truncation).
+  - Full docker-marked test suite (7 tests): All 7 PASSED in 68.63s with `REPRO_DOCKER_TESTS=1` and `REPRO_STEP10_IMAGE`:
+    - `test_binary_and_background_cleanup` PASSED
+    - `test_network_disabled_ipv4_ipv6` PASSED
+    - `test_repro_mount_persists_across_isolated_containers` PASSED
+    - `test_minimizer_with_boltons_image` PASSED
+    - `test_network_is_disabled` PASSED
+    - `test_nonroot_and_command` PASSED
+    - `test_timeout_kills_container` PASSED
+  - `scripts/check_step11.py`: PASSED (both hardware-bound `not_feasible` and vague `needs_info` with reporter questions).
+- Offline test suite: 274 passed, 10 deselected, 9 subtests passed; run three consecutive times with identical counts (0 flakes). Ruff 0.17.3 clean across all files.
+- Paid model calls: $0.00 spent.

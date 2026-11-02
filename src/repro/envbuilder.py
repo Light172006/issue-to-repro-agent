@@ -14,6 +14,7 @@ from pathlib import Path
 from repro.baseline import baseline_from_result
 from repro.github import parse_issue_url
 from repro.sandbox import Sandbox, _is_wait_timeout
+from repro.testdeps import discover_test_dependencies
 
 SHA = re.compile(r'^[0-9a-f]{40}$')
 TAG = re.compile(r'^[A-Za-z0-9][A-Za-z0-9._-]{0,100}$')
@@ -114,6 +115,62 @@ python -c "$installer" "$@"
 ''' 
 
 
+def _fetch_config_files(repo: str, sha: str, client) -> dict[str, str]:
+    """Fetch key project config files from GitHub at the given commit SHA.
+
+    Returns a {filename: text} dict.  Any file that cannot be fetched is
+    silently omitted; this is a best-effort discovery step, not a hard
+    requirement.  Each file is capped at 128 KiB to bound memory use.
+    """
+    import base64 as _b64
+    owner, name, _ = parse_issue_url(f'https://github.com/{repo}/issues/1')
+    base_url = f'https://api.github.com/repos/{owner}/{name}/contents/'
+    targets = [
+        'pyproject.toml', 'setup.cfg', 'setup.py', 'tox.ini',
+        'pytest.ini', 'noxfile.py',
+        'requirements-dev.txt', 'requirements-test.txt',
+        'requirements_dev.txt', 'requirements_test.txt',
+        'requirements/dev.txt', 'requirements/test.txt',
+    ]
+    files: dict[str, str] = {}
+    for target in targets:
+        try:
+            resp = client.get(base_url + target, params={'ref': sha},
+                              timeout=10, follow_redirects=False)
+            if resp.status_code != 200:
+                continue
+            data = resp.json()
+            if data.get('type') != 'file' or data.get('encoding') != 'base64':
+                continue
+            raw = _b64.b64decode(data['content'])
+            if len(raw) > 131072:
+                continue  # skip files > 128 KiB
+            files[target] = raw.decode('utf-8', 'replace')
+        except Exception:  # noqa: BLE001,S112 - non-fatal; caller records warnings.
+            continue
+    return files
+
+
+def _discover_deps(repo: str, sha: str, client) -> tuple[list[str], list[str]]:
+    """Fetch config files and derive plain test-package requirements via testdeps.
+
+    Returns (extra_packages, warnings).  Only plain package requirements and
+    pytest plugins are returned; extras like .[test] require the caller to
+    extend the source install argument, which is not yet supported.
+    On any exception returns empty lists and a single warning entry.
+    """
+    try:
+        files = _fetch_config_files(repo, sha, client)
+        plan = discover_test_dependencies(files)
+        packages = list(plan.requirements) + [p for p in plan.plugins if p not in plan.requirements]
+        warnings = list(plan.warnings)
+        if plan.extras:
+            warnings.append(f'discovered extras {list(plan.extras)!r} not yet wired into install command')
+        return packages, warnings
+    except Exception as exc:  # noqa: BLE001 - never block a build on discovery.
+        return [], [f'discovery error: {type(exc).__name__}: {exc}']
+
+
 class EnvironmentBuilder:
     def __init__(self, docker_client, http_client, *, base_image='python:3.11'):
         self.docker = docker_client
@@ -128,8 +185,16 @@ class EnvironmentBuilder:
         if any(not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.\-]*(?:\[[A-Za-z0-9_,.-]+\])?(?:[<>=!~]+[A-Za-z0-9.*_-]+)?', dep) for dep in test_dependencies):
             raise ValueError('Test dependencies must be simple package requirements')
         sha, selected = resolve_commit(repo, version, self.http)
+        # Discover plain test package requirements from project config files.
+        # Failures are recorded in environment.json and never block the build.
+        _disc_packages, _disc_warnings = _discover_deps(repo, sha, self.http)
+        for pkg in _disc_packages:
+            if pkg not in test_dependencies:
+                test_dependencies.append(pkg)
         base = self.docker.images.get(self.base_image)
-        installer = Path(__file__).with_name('installenv.py').read_text(encoding='utf-8')
+        testdeps_code = Path(__file__).with_name('testdeps.py').read_text(encoding='utf-8')
+        installenv_code = Path(__file__).with_name('installenv.py').read_text(encoding='utf-8')
+        installer = testdeps_code + '\n' + installenv_code
         installer_digest = hashlib.sha256(installer.encode()).hexdigest()
         digest = hashlib.sha256(json.dumps([repo.lower(), sha, base.id, 'builder-v4-date-resolution',
                                              installer_digest, test_dependencies]).encode()).hexdigest()[:32]
@@ -169,13 +234,18 @@ class EnvironmentBuilder:
         with Sandbox(image=image_tag, client=self.docker, max_timeout=60,
                      working_dir='/var/tmp/repro/source') as sandbox:
             result = sandbox.run(['/var/tmp/repro/venv/bin/python', '-c',
-                "import json,platform; print(json.dumps({'python':platform.python_version(),'packages':open('/var/tmp/repro/packages.txt').read().splitlines(),'resolution':json.load(open('/var/tmp/repro/resolution.json'))}))"])
+                "import json,pathlib,platform; root=pathlib.Path('/var/tmp/repro'); disc=json.loads((root/'discovery.json').read_text()) if (root/'discovery.json').exists() else {}; print(json.dumps({'python':platform.python_version(),'packages':(root/'packages.txt').read_text().splitlines(),'resolution':json.loads((root/'resolution.json').read_text()),'discovery':disc}))"])
         if result.timed_out or result.exit_code != 0:
             raise BuildError('Unable to inspect built environment: ' + result.output[-2000:])
         details = json.loads(result.output)
         metadata = {'repo': repo, 'requested_version': version, 'selected_ref': selected,
                     'used_default_branch': version is None, 'commit': sha, 'base_image_id': base.id,
-                    'image': image_tag, 'image_id': image.id, 'cache_hit': cache_hit, 'test_dependencies': test_dependencies, **details}
+                    'image': image_tag, 'image_id': image.id, 'cache_hit': cache_hit,
+                    'test_dependencies': test_dependencies,
+                    'test_dependency_discovery': details.get('discovery') or {
+                        'discovered_packages': _disc_packages,
+                        'warnings': _disc_warnings,
+                    }, **details}
         metadata['resolved_packages'] = list(details['packages'])
         metadata['resolution'] = details.get('resolution', {'strategy': 'unknown', 'reason_for_fallback': None,
                                                             'cutoff': None, 'install_duration_s': None})

@@ -10,6 +10,36 @@ import threading
 import time
 from pathlib import Path
 
+try:
+    from repro.testdeps import discover_test_dependencies
+except ImportError:
+    discover_test_dependencies = None
+
+
+def _read_source_configs(source: Path) -> dict[str, str]:
+    files: dict[str, str] = {}
+    try:
+        source_path = Path(source)
+        if not source_path.exists():
+            return files
+        targets = ['pyproject.toml', 'setup.cfg', 'tox.ini', 'pytest.ini', 'noxfile.py']
+        for target in targets:
+            p = source_path / target
+            if p.is_file():
+                try:
+                    files[target] = p.read_text(encoding='utf-8', errors='replace')[:131072]
+                except OSError:
+                    pass
+        for p in source_path.glob('requirements*.txt'):
+            if p.is_file():
+                try:
+                    files[p.name] = p.read_text(encoding='utf-8', errors='replace')[:131072]
+                except OSError:
+                    pass
+    except (OSError, ValueError):
+        pass
+    return files
+
 
 def run_command(command: list[str], timeout: float) -> tuple[int, str]:
     """Keep only the last 32 KiB of combined installer output in memory."""
@@ -66,6 +96,27 @@ def resolve_install(source: Path, root: Path, extra: list[str], *, run=run_comma
     if code:
         raise RuntimeError('cannot read commit timestamp')
 
+    configs = _read_source_configs(source)
+    plan = None
+    if discover_test_dependencies is not None:
+        try:
+            plan = discover_test_dependencies(configs)
+        except (ValueError, SyntaxError, TypeError, OSError):
+            plan = None
+    discovered_pkgs: list[str] = []
+    source_spec = str(source)
+    discovery_data = {'extras': [], 'requirements': [], 'plugins': [], 'warnings': []}
+    if plan is not None:
+        if plan.extras:
+            source_spec = f"{source}[{','.join(plan.extras)}]"
+        discovered_pkgs = [p for p in list(plan.requirements) + list(plan.plugins) if p not in extra]
+        discovery_data = {'extras': list(plan.extras), 'requirements': list(plan.requirements),
+                          'plugins': list(plan.plugins), 'warnings': list(plan.warnings)}
+    try:
+        (root / 'discovery.json').write_text(json.dumps(discovery_data), encoding='utf-8')
+    except OSError:
+        pass
+
     bootstrap = root / 'resolver'
     code, _ = invoke([sys.executable, '-m', 'venv', str(bootstrap)])
     if code:
@@ -86,7 +137,7 @@ def resolve_install(source: Path, root: Path, extra: list[str], *, run=run_comma
         command = [uv, 'pip', 'install', '--python', str(venv / 'bin' / 'python')]
         if strategy == 'date_bounded':
             command += ['--exclude-newer', cutoff]
-        command += [str(source), 'pytest', *extra]
+        command += [source_spec, 'pytest', *discovered_pkgs, *extra]
         code, output = invoke(command)
         if code == 0:
             return {'strategy': strategy, 'reason_for_fallback': previous_reason,
