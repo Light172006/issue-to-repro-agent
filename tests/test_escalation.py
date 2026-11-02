@@ -112,3 +112,41 @@ def test_wonder_worst_case_budget_blocks_generation(tmp_path):
     assert result.outcome == 'limit_hit:dollars'
     assert 'wonder' not in seen
     assert Decimal(result.cost_usd) <= Decimal(1)
+
+
+def test_force_escalate_plumbing_triggers_wonder(tmp_path):
+    config = {'max_steps': 25, 'max_run_usd': 1, 'max_seconds': 900, 'max_daily_usd': 5,
+              'max_total_usd': 120, 'stall': {'min_steps': 10, 'repeat_error_threshold': 5},
+              'escalation': {'enabled': True, 'model': 'wonder', 'max_dollars': '.60',
+                             'min_remaining_dollars': '.25', 'min_remaining_steps': 5}}
+    prices = {'fake': {'input_token_ceiling': 1000, 'input_per_million': '1.25', 'output_per_million': '4.25'},
+              'wonder': {'input_token_ceiling': 1000, 'input_per_million': '4', 'output_per_million': '20'}}
+    provider = FakeProvider()
+    seen = []
+    def complete(**kwargs):
+        seen.append(kwargs['model'])
+        name = 'submit_repro' if kwargs['model'] == 'wonder' else 'run_shell'
+        args = {'path': '/work/repro/test_x.py'} if name == 'submit_repro' else {'command': 'progressing'}
+        return ([{'type': 'function_call', 'name': name, 'arguments': json.dumps(args),
+                  'call_id': str(len(seen))}], 10, 5)
+    provider.complete = complete
+    class Toolbox:
+        def execute(self, name, args):
+            if name == 'submit_repro':
+                return {'output': 'confirmed', 'outcome': 'candidate_found', 'path': args['path'], 'verdict': 'exact'}
+            return {'output': 'progress ' + args.get('command', '')}
+        def close(self):
+            pass
+    budget = Budget(tmp_path / 'ledger', config)
+    try:
+        result = run_agent(IssueRecord(repo='example/project', issue=1), Toolbox(), provider=provider,
+                           budget=budget, model_config=prices, model='fake',
+                           trace_path=str(tmp_path / 'trace'), tool_schemas=[],
+                           force_escalate_at_step=2)
+    finally:
+        budget.close()
+    assert seen == ['fake', 'fake', 'wonder']
+    assert result.outcome == 'candidate_found'
+    assert result.escalation['escalated'] is True
+    assert result.escalation['trigger'] == 'forced_plumbing_test'
+    assert result.escalation['step'] == 2
