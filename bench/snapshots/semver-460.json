@@ -1,0 +1,30 @@
+{
+  "schema_version": 2,
+  "repo": "python-semver/python-semver",
+  "number": 460,
+  "reporter": "Learloj",
+  "reporter_type": "User",
+  "body": "### Which version of Python is the problem with?\n\n3.8\n\n### What semver version are you using?\n\n_No response_\n\n### What OS are you using? (Add more in the Environment section)\n\nmacOS\n\n### Situation\n\nWhen calling semver.bump_prerelease on a version with a prerelease of `-rc9`, it gets bumped to `-rc10`. However. according to the semver spec (https://semver.org/#spec-item-11 section 11.4 items 1+2), 'rc9' is considered a string and will be compared to 'rc10' using ASCII sort order, which considers 'rc10' to be lower than 'rc9'.\n\n### How to reproduce\n\n```\n>>> import semver\n>>> version1 = '1.0.0-rc9'\n>>> version2 = semver.bump_prerelease(version1)\n>>> version2\n'1.0.0-rc10'\n>>> semver.compare(version1, version2)\n1\n```\n\n\n\n### Expected behavior\n\nNot entirely sure how the bump_prerelease version should behalve when it gets `rc9`. ASCII-wise, after `9` you could consider `a`, but you get `rca`, `rcb` which feels a bit odd. Another option could be that the function just returns some kind of error, indicating it cannot determine how to increase `rc9` to a higher value.\n\n### Environment\n\n_No response_",
+  "comments": [
+    {
+      "user": "Learloj",
+      "author_association": "CONTRIBUTOR",
+      "body": "Hi @tomschr ! Kudos for your fast reply! That does not happen often 😁\n\nI think it is a very elegant way to resolve this indeed:\n* Split the pre release tag by dots and consider the last value\n* If the value is numeric, increase it\n* If not, add `.0`\n\nThat way it will always be considered a higher version according to the semver spec.\n\nIf it is ok, I don't mind working on a PR to implement this."
+    },
+    {
+      "user": "Learloj",
+      "author_association": "CONTRIBUTOR",
+      "body": "@tomschr while working on improving the tests to cover this issue, I ran into another possible bug. When bumping the pre release version on a version that has no prerelease part yet, semver only adds the prerelease. As a version without a prerelease is considered newer than the same version with a prerelease, we basically get a version that is lower than the version which we bumped, which feels wrong to me.\n\nTo demonstrate:\n```\n>>> version = semver.Version.parse('1.2.3')\n>>> newversion = version.bump_prerelease()\n>>> newversion\nVersion(major=1, minor=2, patch=3, prerelease='rc.1', build=None)\n>>> version.compare(newversion)\n1\n```\n\nChecking npm, I see that when you bump a prerelease on a version without a prerelease part, they also bump the minor version to ensure the resulting version is considered higher:\n```\n> v = semver.parse(\"2.3.4\");\nSemVer {\n  options: {},\n  loose: false,\n  includePrerelease: false,\n  raw: '2.3.4',\n  major: 2,\n  minor: 3,\n  patch: 4,\n  prerelease: [],\n  build: [],\n  version: '2.3.4'\n}\n> semver.inc(v, \"prerelease\")\n'2.3.5-0'\n```\n\nHow shall I proceed with this? Keep the current implementation for this (and not add a test to validate if the outcome of the bump is higher than the input), or shall I change the behavior and also increase the minor in such cases?"
+    },
+    {
+      "user": "Learloj",
+      "author_association": "CONTRIBUTOR",
+      "body": "@tomschr fair point. I think it's a bit confusing that we have multiple ways to 'increase' the version, which behave differently. I also think that adding a new method, even if we'd deprecate the others, might create more confusion, plus it'd affect a lot more people who'd need to adjust their code to step away from the `bump_*` methods.\n\nRegarding the `inc` method, isn't that exactly what `next_version()` currently does? I checked the implementations, and both increase the patch version if there was no prerelease set (though npm adds `0` and semver adds `rc.1` as prerelease).\n\nI agree with your statement regarding backwards compatibility, but this change also feels so small for me that it's a bit drastic to increase the major version of semver. What we could do, is introduce an argument to `bump_prerelease()` named something like `ensure_newer_version` or `bump_patch_when_empty` or some other logical name, which would default to `false`. That way, we keep backwards compatibility, and when someone sets it to `true`, you'd get the 'expected' behaviour which bumps the patch version if there was no prerelease version set, resulting in a newer version. Then later, when there are other bigger changes and semver gets bumped to major version 4, we could consider adjusting the default value of this argument to `true`.\n\nIf this is not desired, then I think deprecating the `bump_*()` methods in favour of `next_version()` would not be a bad idea, as they both (should) do the same thing. I don't think it's necessary to add a `inc()` method, unless I am missing a big difference between what `next_version()` does, and what `inc()` in NPM does.\n\nLet me know what you prefer, I am fine with creating a PR for either solution."
+    },
+    {
+      "user": "Learloj",
+      "author_association": "CONTRIBUTOR",
+      "body": "@tomschr please have a look at my PR and provide any and all feedback (don't hold back :-) )."
+    }
+  ]
+}

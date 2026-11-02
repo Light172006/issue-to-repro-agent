@@ -1,0 +1,9 @@
+{
+  "schema_version": 2,
+  "repo": "tartley/colorama",
+  "number": 89,
+  "reporter": "BookOwl",
+  "reporter_type": "User",
+  "body": "On windows, running `print(colorama.ansi.clear_screen())` turns my console into this:\n![capture](https://cloud.githubusercontent.com/assets/13385064/13538200/261e9f9a-e217-11e5-8c5d-8a91e7918ea2.PNG)\nIf I then run `cls`, the console turns back to normal:\n![capture](https://cloud.githubusercontent.com/assets/13385064/13538221/489e8224-e217-11e5-8944-1709caa1e16b.PNG)\n",
+  "comments": []
+}

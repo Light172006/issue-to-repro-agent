@@ -1,0 +1,9 @@
+{
+  "schema_version": 2,
+  "repo": "marshmallow-code/marshmallow",
+  "number": 2901,
+  "reporter": "worksbyfriday",
+  "reporter_type": "User",
+  "body": "## Summary\n\nFixes [LINK_REMOVED].\n\n`Constant(42, required=True)` raises `ValueError: 'load_default' must not be set for required fields.` because [LINK_REMOVED] moved `load_default` assignment into kwargs before `super().__init__()`.\n\nThe fix:\n- Sets `load_default` and `dump_default` after `super().__init__()` (avoiding the conflict check)\n- Overrides `_validate_missing` to skip the `required` check, since a Constant always provides a value regardless of input\n- Preserves the [LINK_REMOVED] fix for `Constant(None)` by explicitly setting `allow_none = True` when the constant is `None` and `allow_none` was not provided\n\n## Test plan\n\n- [x] Existing `test_constant_none_allows_none_value` still passes ([LINK_REMOVED] regression)\n- [x] New `test_constant_with_required` verifies `Constant(42, required=True)` works\n- [x] All 1133 tests pass",
+  "comments": []
+}

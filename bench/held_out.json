@@ -1,0 +1,137 @@
+[
+  {
+    "actual_behavior": "TypeError: __init__() takes at most 2 arguments (3 given)",
+    "buggy_ref": "0a63cb9efbc4e68ef2cf0a639ae53bf193c3182a",
+    "category": "feasible",
+    "expected_behavior": "deepcopy(Dict()) returns a new Dict clone without raising TypeError",
+    "fix_ref": "4a0fba9bc99c43d344d5c9077ce6ca2eebf09fd7",
+    "id": "addict-28",
+    "issue_number": 28,
+    "issue_url": "https://github.com/mewwts/addict/issues/28",
+    "library": "mewwts/addict",
+    "split": "held_out",
+    "symptom": {
+      "kind": "exception",
+      "type": "TypeError"
+    },
+    "test_code": "from copy import deepcopy\nfrom addict import Dict\n\ndef test_deepcopy_empty_dict():\n    d = Dict()\n    c = deepcopy(d)\n    assert isinstance(c, Dict)\n    assert c == d\n    c.a = 1\n    assert 'a' not in d\n",
+    "test_file_path": "tests/test_addict.py",
+    "title": "deepcopy fails on empty Dict"
+  },
+  {
+    "actual_behavior": "OSError: [WinError 6] The handle is invalid",
+    "buggy_ref": "8a9c3140e0be22a0a2df3d827299a91d62c16c02",
+    "category": "infeasible",
+    "expected_behavior": "AnsiToWin32 handles redirected character device without raising OSError",
+    "fix_ref": "9a30cf7866e41b9d4f24ef3d3957297e59bbf281",
+    "id": "colorama-110",
+    "infeasible_reason": "Requires Windows kernel32 Win32 Console API (kernel32.GetConsoleMode), which is unavailable in the Linux execution sandbox.",
+    "issue_number": 110,
+    "issue_url": "https://github.com/tartley/colorama/issues/110",
+    "library": "tartley/colorama",
+    "split": "held_out",
+    "symptom": {
+      "kind": "exception",
+      "type": "OSError"
+    },
+    "test_code": "import sys\nimport pytest\nfrom colorama.ansitowin32 import AnsiToWin32\n\ndef test_ansitowin32_windows_console_handle():\n    if sys.platform != 'win32':\n        pytest.skip('Requires Windows OS kernel32 console APIs')\n    a = AnsiToWin32(sys.stdout)\n    assert a.has_reduced_output()\n",
+    "test_file_path": "colorama/tests/ansitowin32_test.py",
+    "title": "AnsiToWin32 raises OSError on Windows when handle is redirected to character device"
+  },
+  {
+    "actual_behavior": "NVMLError: NVML Shared Library Not Found",
+    "buggy_ref": "52496fc338271032bf28b248a73b6481a5330e79",
+    "category": "infeasible",
+    "expected_behavior": "gpustat queries live NVIDIA GPU hardware",
+    "fix_ref": "7967b2ffeb4a86b3602581c3c9ca08eec9b6b761",
+    "id": "gpustat-cuda",
+    "infeasible_reason": "Requires physical NVIDIA GPU hardware and proprietary NVIDIA NVML/CUDA drivers (/dev/nvidia* and libnvidia-ml.so), which are absent in standard CI and container sandboxes.",
+    "issue_number": 102,
+    "issue_url": "https://github.com/wookayin/gpustat/issues/102",
+    "library": "wookayin/gpustat",
+    "split": "held_out",
+    "symptom": {
+      "kind": "exception",
+      "type": "NVMLError"
+    },
+    "test_code": "import pytest\nimport gpustat\n\ndef test_gpustat_nvidia_hardware():\n    try:\n        gpustat.new_query()\n    except Exception as e:\n        if 'NVSMI' in str(e) or 'NVML' in str(e) or 'driver' in str(e).lower():\n            pytest.fail(f'Missing NVIDIA GPU hardware/NVML driver: {e}')\n        raise\n",
+    "test_file_path": "test_gpustat.py",
+    "title": "gpustat crashes when NVIDIA NVML driver library is missing"
+  },
+  {
+    "actual_behavior": "AttributeError: 'NoneType' object has no attribute 'match'",
+    "buggy_ref": "cbb5fc1d604e386444101e4ec9d9ca7e8838334b",
+    "category": "feasible",
+    "expected_behavior": "DateTime(format=\"\") raises ValidationError on deserialize",
+    "fix_ref": "8313423719bfd0a87a1cf71f81014e7ce21d3e1d",
+    "id": "marshmallow-2901",
+    "issue_number": 2901,
+    "issue_url": "https://github.com/marshmallow-code/marshmallow/issues/2901",
+    "library": "marshmallow-code/marshmallow",
+    "split": "held_out",
+    "symptom": {
+      "kind": "exception",
+      "type": "AttributeError"
+    },
+    "test_code": "import pytest\nfrom marshmallow.fields import DateTime\nfrom marshmallow.exceptions import ValidationError\n\ndef test_datetime_empty_format_deserialization():\n    field = DateTime(format='')\n    with pytest.raises(ValidationError):\n        field.deserialize('2024-01-01')\n",
+    "test_file_path": "tests/test_fields.py",
+    "title": "DateTime deserialization raises AttributeError when format string is empty"
+  },
+  {
+    "actual_behavior": "ValidationError: {'child': {'value': ['Unknown field.']}}",
+    "buggy_ref": "e35df505db1eec70d30fe9403d52c78f8cb0a845",
+    "category": "feasible",
+    "expected_behavior": "Pluck field respects empty string data_key and loads data correctly",
+    "fix_ref": "da9ea81883398939634e34e5a95260840b374971",
+    "id": "marshmallow-3082",
+    "issue_number": 3082,
+    "issue_url": "https://github.com/marshmallow-code/marshmallow/issues/3082",
+    "library": "marshmallow-code/marshmallow",
+    "split": "held_out",
+    "symptom": {
+      "kind": "exception",
+      "type": "ValidationError"
+    },
+    "test_code": "from marshmallow import Schema, fields\n\nclass Child(Schema):\n    value = fields.Int(data_key='')\n\nclass Parent(Schema):\n    child = fields.Pluck(Child, 'value')\n\ndef test_pluck_empty_string_data_key():\n    schema = Parent()\n    assert schema.load({'child': 2}) == {'child': {'value': 2}}\n",
+    "test_file_path": "tests/test_fields.py",
+    "title": "Pluck field ignores empty string data_key during load"
+  },
+  {
+    "actual_behavior": "AssertionError: assert [[]] == []",
+    "buggy_ref": "cf2206c9e0d16be99c4ff4d5eaec4d9a2ff5b4e7",
+    "category": "feasible",
+    "expected_behavior": "chunked_even([], n) yields nothing",
+    "fix_ref": "0fbc4ef7dfc33db6eb69c6cfaf19b8cf6b445851",
+    "id": "more-itertools-1309",
+    "issue_number": 1309,
+    "issue_url": "https://github.com/more-itertools/more-itertools/issues/1309",
+    "library": "more-itertools/more-itertools",
+    "split": "held_out",
+    "symptom": {
+      "kind": "exception",
+      "type": "AssertionError"
+    },
+    "test_code": "from more_itertools import chunked_even\n\ndef test_chunked_even_empty_input():\n    assert list(chunked_even([], 3)) == []\n",
+    "test_file_path": "tests/test_more_itertools.py",
+    "title": "chunked_even yields uneven trailing chunk on empty input"
+  },
+  {
+    "actual_behavior": "MultipleInvalid: length of value must be at least 0",
+    "buggy_ref": "9a3b610c1f5431668f4e24cf745db4591f480392",
+    "category": "feasible",
+    "expected_behavior": "Length(min=0) accepts empty string and returns empty string",
+    "fix_ref": "397ae1c4be8b248408ae9741f021e5b8d2ea234b",
+    "id": "voluptuous-451",
+    "issue_number": 451,
+    "issue_url": "https://github.com/alecthomas/voluptuous/issues/451",
+    "library": "alecthomas/voluptuous",
+    "split": "held_out",
+    "symptom": {
+      "kind": "exception",
+      "type": "MultipleInvalid"
+    },
+    "test_code": "from voluptuous import Length\n\ndef test_length_empty_string_min_zero():\n    validator = Length(min=0)\n    assert validator('') == ''\n",
+    "test_file_path": "voluptuous/tests/test_validators.py",
+    "title": "Empty string rejected by Length validator when min=0"
+  }
+]

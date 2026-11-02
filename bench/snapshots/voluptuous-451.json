@@ -1,0 +1,9 @@
+{
+  "schema_version": 2,
+  "repo": "alecthomas/voluptuous",
+  "number": 451,
+  "reporter": "Avorthoren",
+  "reporter_type": "User",
+  "body": "Version 12.1 (commit [LINK_REMOVED]/commits/[COMMIT_REMOVED]) adds call of `sorted` function. This leads to application crash when schema container contains not comparable pair of elements. Example:\r\n```\r\n>>> import voluptuous as vlps\r\n>>> s = vlps.Schema(vlps.In((str, int, float)))\r\n>>> d = s(42)\r\nTraceback (most recent call last):\r\n  File \"/usr/local/lib/python3.9/code.py\", line 90, in runcode\r\n    exec(code, self.locals)\r\n  File \"<input>\", line 3, in <module>\r\n  File \".../lib/python3.9/site-packages/voluptuous/schema_builder.py\", line 272, in __call__\r\n    return self._compiled([], data)\r\n  File \".../lib/python3.9/site-packages/voluptuous/schema_builder.py\", line 817, in validate_callable\r\n    return schema(data)\r\n  File \".../lib/python3.9/site-packages/voluptuous/validators.py\", line 741, in __call__\r\n    'value must be one of {}'.format(sorted(self.container)))\r\nTypeError: '<' not supported between instances of 'type' and 'type'\r\n```\r\n\r\nThis function should not be used, as it limits the possibilities of use without giving anything in return.",
+  "comments": []
+}

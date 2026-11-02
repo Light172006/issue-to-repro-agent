@@ -1,0 +1,9 @@
+{
+  "schema_version": 2,
+  "repo": "python-validators/validators",
+  "number": 410,
+  "reporter": "cwisdo",
+  "reporter_type": "User",
+  "body": "In testing, I've found that:\r\n\r\n`validators.email(\"stephen @example.com\") == True`\r\n`validators.email(\"step;hen@example.com\") == True`",
+  "comments": []
+}

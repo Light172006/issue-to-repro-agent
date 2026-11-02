@@ -262,7 +262,7 @@ class EnvironmentBuilder:
                 with Sandbox(image=image_tag, client=self.docker, max_timeout=remaining,
                          working_dir='/var/tmp/repro/source') as sandbox:
                     result = sandbox.run(['/var/tmp/repro/venv/bin/python', '-m', 'pytest',
-                                          '-ra', '-p', 'no:cacheprovider', '--color=no'], timeout=remaining)
+                                          '-ra', '-p', 'no:cacheprovider', '-p', 'no:cov', '-o', 'addopts=', '--color=no'], timeout=remaining)
                 metadata['baseline'] = baseline_from_result(result)
         except Exception:  # noqa: BLE001 - record an inconclusive baseline without leaking output.
             metadata['baseline'] = {'status': 'runner_error', 'counts': None, 'failures': []}
@@ -289,7 +289,7 @@ def main():
             if args.run_tests:
                 with Sandbox(image=meta['image'], client=dc, max_timeout=300,
                              working_dir='/var/tmp/repro/source') as sandbox:
-                    result = sandbox.run(['/var/tmp/repro/venv/bin/python', '-m', 'pytest', '-ra', '-p', 'no:cacheprovider', '--color=no'], timeout=300)
+                    result = sandbox.run(['/var/tmp/repro/venv/bin/python', '-m', 'pytest', '-ra', '-p', 'no:cacheprovider', '-p', 'no:cov', '-o', 'addopts=', '--color=no'], timeout=300)
                 print(result.output)
                 if result.timed_out or result.exit_code != 0:
                     parser.exit(1, f'Offline pytest failed: exit={result.exit_code}, timeout={result.timed_out}\n')

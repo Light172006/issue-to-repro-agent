@@ -1,0 +1,9 @@
+{
+  "schema_version": 2,
+  "repo": "alecthomas/voluptuous",
+  "number": 515,
+  "reporter": "bdraco",
+  "reporter_type": "User",
+  "body": "fixes a regression from [LINK_REMOVED]\r\nblocks [LINK_REMOVED]\r\n\r\n",
+  "comments": []
+}

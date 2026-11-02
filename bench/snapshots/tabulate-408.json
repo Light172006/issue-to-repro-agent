@@ -1,0 +1,9 @@
+{
+  "schema_version": 2,
+  "repo": "astanin/python-tabulate",
+  "number": 408,
+  "reporter": "astanin",
+  "reporter_type": "User",
+  "body": "Repro example:\n\n```pycon\n>>> import tabulate as ttt\n>>> ttt.tabulate([[23],[456]], tablefmt=\"asciidoc\")\n'[cols=\">5\"]\\n|====\\n|  23 \\n| 456 \\n|===='\n```\n\nExpected\n\n```\n'[cols=\">5\"]\\n|====\\n|  23\\n| 456\\n|===='\n```\n",
+  "comments": []
+}

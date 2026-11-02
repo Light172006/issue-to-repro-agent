@@ -13,7 +13,6 @@ import argparse
 import json
 import os
 import sys
-import tempfile
 import time
 from pathlib import Path
 from typing import Any
@@ -71,11 +70,11 @@ def validate_infeasible(candidate: dict[str, Any]) -> tuple[bool, str]:
 
 
 def run_test_in_image(dc: docker.DockerClient, image: str, test_filename: str, test_code: str,
-                      *, timeout: int = 60) -> tuple[int, str]:
+                      *, timeout: int = 60, run_id: str = 'test') -> tuple[int, str]:
     """Run test_code in Sandbox with image, writing test_code into mounted repro folder."""
-    with tempfile.TemporaryDirectory() as td:
-        repro_dir = Path(td) / 'repro'
-        repro_dir.mkdir(parents=True, exist_ok=True)
+    repro_dir = Path('runs') / f'val_{run_id}' / 'repro'
+    repro_dir.mkdir(parents=True, exist_ok=True)
+    try:
         test_file = repro_dir / test_filename
         test_file.write_text(test_code, encoding='utf-8')
 
@@ -84,7 +83,11 @@ def run_test_in_image(dc: docker.DockerClient, image: str, test_filename: str, t
                      writable_mount=repro_dir)
         cmd = ['/var/tmp/repro/venv/bin/pytest', '-v', f'/work/repro/{test_filename}']
         res = sb.run(cmd, timeout=timeout)
-        return res.exit_code, res.stdout
+        code = 0 if res.exit_code is None else res.exit_code
+        return code, res.output
+    finally:
+        if (repro_dir / test_filename).is_file():
+            (repro_dir / test_filename).unlink(missing_ok=True)
 
 
 def validate_candidate(candidate: dict[str, Any], dc: docker.DockerClient, hc: httpx.Client,
@@ -122,7 +125,7 @@ def validate_candidate(candidate: dict[str, Any], dc: docker.DockerClient, hc: h
     # 2. Run test in buggy environment (must fail with symptom match)
     test_filename = Path(test_file_path).name
     try:
-        b_code, b_out = run_test_in_image(dc, buggy_image, test_filename, test_code_snippet, timeout=60)
+        b_code, b_out = run_test_in_image(dc, buggy_image, test_filename, test_code_snippet, timeout=60, run_id=f'{cid}_buggy')
     except Exception as e:  # noqa: BLE001
         return False, {}, f'Test execution at buggy commit failed: {e}'
 
@@ -159,7 +162,7 @@ def validate_candidate(candidate: dict[str, Any], dc: docker.DockerClient, hc: h
 
     # 4. Run test in fix environment (must pass)
     try:
-        f_code, f_out = run_test_in_image(dc, fix_image, test_filename, test_code_snippet, timeout=60)
+        f_code, f_out = run_test_in_image(dc, fix_image, test_filename, test_code_snippet, timeout=60, run_id=f'{cid}_fix')
     except Exception as e:  # noqa: BLE001
         return False, {}, f'Test execution at fix commit failed: {e}'
 

@@ -1,0 +1,9 @@
+{
+  "schema_version": 2,
+  "repo": "more-itertools/more-itertools",
+  "number": 1309,
+  "reporter": "DawnofGenX",
+  "reporter_type": "User",
+  "body": "## Problem\n\n`bucket` selects its validator with `validator or (lambda x: True)`, so a\ncallable that is falsey is silently replaced by the default that accepts every\nkey. An empty `set` subclass defining `__call__` is one example:\n\n```python\nfrom more_itertools import bucket\n\nclass AllowedKeys(set):\n    def __call__(self, key):\n        return key in self\n\nallowed = AllowedKeys()  # falsey: it is an empty set\nbuckets = bucket(iter([1, 2, 3]), key=lambda x: x, validator=allowed)\nlist(buckets[1])  # [1], expected []\n```\n\nThe validator rejects every key, so the bucket should be empty (and the source\nshould not be scanned for it). Instead the key is treated as valid.\n\n## Changes\n\n- Use an `is None` check instead of truthiness when defaulting the validator.\n- Add a regression test using a falsey callable.\n- Note the fix in the unreleased changelog.\n\n## Verification\n\n- The new test fails on `main` (`[10] != []`) and passes with the fix.\n- Full suite: 768 passed, 21202 subtests passed.",
+  "comments": []
+}

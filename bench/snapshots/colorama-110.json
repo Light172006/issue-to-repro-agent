@@ -1,0 +1,20 @@
+{
+  "schema_version": 2,
+  "repo": "tartley/colorama",
+  "number": 110,
+  "reporter": "radssh",
+  "reporter_type": "User",
+  "body": "Colorama 0.3.7 raises TypeError exception under Python3.5 when attempting to set window title via ANSI escape sequence.\n\n```\n>>> s\n'\\x1b]2;Foo\\x07'\n>>> print(s)\nTraceback (most recent call last):\n  File \"<stdin>\", line 1, in <module>\n  File \"C:\\Program Files (x86)\\Python35-32\\lib\\site-packages\\colorama\\ansitowin32.py\", line 40, in write\n    self.__convertor.write(text)\n  File \"C:\\Program Files (x86)\\Python35-32\\lib\\site-packages\\colorama\\ansitowin32.py\", line 141, in write\n    self.write_and_convert(text)\n  File \"C:\\Program Files (x86)\\Python35-32\\lib\\site-packages\\colorama\\ansitowin32.py\", line 163, in write_and_convert\n    text = self.convert_osc(text)\n  File \"C:\\Program Files (x86)\\Python35-32\\lib\\site-packages\\colorama\\ansitowin32.py\", line 235, in convert_osc\n    winterm.set_title(params[1])\n  File \"C:\\Program Files (x86)\\Python35-32\\lib\\site-packages\\colorama\\winterm.py\", line 162, in set_title\n    win32.SetConsoleTitle(title)\n  File \"C:\\Program Files (x86)\\Python35-32\\lib\\site-packages\\colorama\\win32.py\", line 154, in SetConsoleTitle\n    return _SetConsoleTitleW(title)\nctypes.ArgumentError: argument 1: <class 'TypeError'>: wrong type\n```\n",
+  "comments": [
+    {
+      "user": "radssh",
+      "author_association": "NONE",
+      "body": "Test looks good with latest code. Thanks!\n"
+    },
+    {
+      "user": "radssh",
+      "author_association": "NONE",
+      "body": "Any timetable for a versioned release with this fix?"
+    }
+  ]
+}

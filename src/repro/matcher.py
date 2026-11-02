@@ -9,14 +9,14 @@ from repro.parser import IssueRecord, normalize_signature
 from repro.tools import SymptomMatch
 
 _EXCEPTION = re.compile(
-    r'^\s*(?:E\s+)?(?P<type>(?:[A-Za-z_][\w.]*(?:Error|Exception|Warning|Exit|Interrupt)'
-    r'|Exception|Warning|StopIteration|GeneratorExit))'
+    r'^\s*(?:E\s+)?(?P<type>(?:[A-Za-z_][\w.]*(?:Error|Exception|Warning|Exit|Interrupt|Invalid)'
+    r'|Exception|Warning|StopIteration|GeneratorExit|Invalid))'
     r'(?::[ \t]*(?P<message>[^\r\n]*))?[ \t]*$', re.MULTILINE)
 _ANSI = re.compile(r'\x1b\[[0-9;]*[a-zA-Z]')
 _PY_FRAME = re.compile(r'^\s*File "([^"\n]+)", line \d+, in ([\w.<>]+)', re.MULTILINE)
 _IPY_FRAME = re.compile(r'^\s*File\s+(.+?\.py):\d+,\s+in\s+([\w.]+)', re.MULTILINE)
 _PYTEST_FRAME = re.compile(r'^\s*(.+?\.py):\d+:\s+in\s+([\w.<>]+)', re.MULTILINE)
-_PYTEST_LOCATION = re.compile(r'^\s*(.+?\.py):\d+:\s+(?:[\w.]*Error|[\w.]*Exception)\s*$', re.MULTILINE)
+_PYTEST_LOCATION = re.compile(r'^\s*(.+?\.py):\d+:\s+(?:[\w.]*Error|[\w.]*Exception|[\w.]*Invalid)\s*$', re.MULTILINE)
 _FUNCTION = re.compile(r'^\s*(?:>\s*)?(?:async\s+)?def\s+(\w+)\s*\(', re.MULTILINE)
 _ASSERTION = re.compile(r'^\s*E\s+assert\s+(.+?)\s*==\s*(.+?)\s*$', re.MULTILINE)
 
@@ -40,7 +40,18 @@ def extract_failure(output: str) -> FailureSignature | None:
     body = re.split(r'^=+\s*short test summary info\s*=+', output, maxsplit=1, flags=re.MULTILINE)[0]
     errors = list(_EXCEPTION.finditer(body))
     if not errors:
-        return None
+        locations = list(_PYTEST_LOCATION.finditer(body))
+        if not locations:
+            return None
+        loc_match = re.match(r'^\s*(?P<path>.+?\.py):\d+:\s+(?P<type>[\w.]*(?:Error|Exception|Invalid))\s*$',
+                             locations[-1].group(0))
+        if not loc_match:
+            return None
+        exception_type = loc_match['type'].split('.')[-1]
+        before = body[:locations[-1].start()]
+        functions = list(_FUNCTION.finditer(before))
+        frame = f'{_filename(loc_match["path"])}:{functions[-1][1]}' if functions else None
+        return FailureSignature(exception_type, None, frame)
     error = errors[-1]
     if (not error.group(0).lstrip().startswith('E ') and
             'Traceback (most recent call last)' not in body[:error.start()] and

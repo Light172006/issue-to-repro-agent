@@ -1,0 +1,9 @@
+{
+  "schema_version": 2,
+  "repo": "mewwts/addict",
+  "number": 28,
+  "reporter": "mewwts",
+  "reporter_type": "User",
+  "body": "``` Python\n>>> b = [(i, i+1) for i in range(3)]\n>>> b\n[(0, 1), (1, 2), (2, 3)]\n>>> a = Dict(b)\n>>> a\n{(0, 1): (1, 2)}\n```\n",
+  "comments": []
+}

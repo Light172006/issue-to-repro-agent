@@ -1,0 +1,26 @@
+[
+  {
+    "candidate": "tabulate-366",
+    "repo": "astanin/python-tabulate",
+    "issue_number": 366,
+    "reason": "Rejected: Legacy 2022 test suite execution exceeded 60s runtime requirement (timed out >3 minutes during baseline execution)."
+  },
+  {
+    "candidate": "dateutil-1583",
+    "repo": "dateutil/dateutil",
+    "issue_number": 1583,
+    "reason": "Rejected: Legacy test dependency declared freezegun without lower bound, resolving to freezegun==0.0.2 (2012 release) which failed build isolation due to circular undeclared build-time dependency."
+  },
+  {
+    "candidate": "dateutil-1053",
+    "repo": "dateutil/dateutil",
+    "issue_number": 1053,
+    "reason": "Rejected: Date-bounded dependency resolution failed due to unbuildable legacy test dependencies in tox.ini."
+  },
+  {
+    "candidate": "dirty-equals-109",
+    "repo": "samuelcolvin/dirty-equals",
+    "issue_number": 109,
+    "reason": "Rejected: Repository test suite requires optional extra [pydantic] not declared in test dependencies, causing baseline collection_error and rendering baseline inconclusive."
+  }
+]
