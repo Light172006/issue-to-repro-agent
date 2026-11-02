@@ -70,3 +70,17 @@
 - Full offline test suite (274 passed, 10 deselected, 9 subtests) run three consecutive times: 0 failures, 0 flakes.
 - Commit: 8d75541 fix: harden atomic json write retry for Windows file lock contention.
 - Paid model calls: .00 spent.
+
+
+## 2026-11-02 — C2 Step 12 Escalation Validation & Evaluation
+
+- Validated Step 12 forced escalation plumbing with live Meta Model API (`muse-spark-1.3` -> `muse-wonder`) on `humanize #57` with `--force-escalate-at-step 2`:
+  - Run ID: `62fd7945c92c405a824adc1a00287cbf`
+  - Result: `status: "reproduced"`, `solved_after_escalation: true`, `verdict: "exact"`, 5/5 repeated runs matched, minimized to 3 lines in 13.1s, cost $0.036172.
+- Step 12 Natural Evaluation across `bench/step12_issues.txt`:
+  - `humanize #57`: Solved on Spark-1 (8 steps, $0.03065) and Spark-2 (7 steps, $0.0229). Escalation correctly skipped (preserving budget).
+  - `boltons #337`: Failed initially due to legacy Python 2.7 dependencies extracted from `tox.ini` conflicting with modern packages (`pytest-cov==2.12` vs `pytest-cov==4.0.0`). Fixed by ignoring py2 and linter tox sections and deduplicating package names in `c5b34b1`. Re-build verified: 407/407 tests passed.
+  - `pydash #153`: `spark-1` stopped at step 1; `spark-2` stopped at step 25 ($0.202); `escalation` run stopped at step 12 ($0.058).
+  - `attrs #1348`: `spark-1` reached 25 steps ($0.211); `spark-2` stopped at step 9 ($0.052); `escalation` triggered at step 15, called Wonder ($0.043 Wonder cost), then caught `ProviderError` from Wonder and fell back cleanly to Spark without crashing.
+- Offline Test Suite: 277 offline tests passed, 10 deselected, 9 subtests passed (run 3 times without flakiness). Ruff clean across repository.
+- Spend: $1.31 today, lifetime ledger total $1.62.
