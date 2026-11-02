@@ -185,7 +185,8 @@ def validate_candidate(candidate: dict[str, Any], dc: docker.DockerClient, hc: h
 
 def main() -> int:
     parser = argparse.ArgumentParser(description='Ground-truth benchmark validator')
-    parser.add_argument('--input', default='bench/candidates.json', help='Path to candidate issues JSON')
+    parser.add_argument('--input', default=None, help='Path to candidate issues JSON (defaults to bench/dataset.json)')
+    parser.add_argument('--candidate', default=None, help='Specific candidate ID to validate')
     parser.add_argument('--output', default='bench/dataset.json', help='Output validated dataset JSON')
     parser.add_argument('--rejected', default='bench/rejected.json', help='Output rejected issues JSON')
     args = parser.parse_args()
@@ -196,13 +197,19 @@ def main() -> int:
     if token:
         headers['Authorization'] = 'Bearer ' + token
 
-    input_path = Path(args.input)
+    input_file = args.input or ('bench/dataset.json' if Path('bench/dataset.json').is_file() else 'bench/candidates.json')
+    input_path = Path(input_file)
     if not input_path.is_file():
         print(f'Error: input file {input_path} does not exist', file=sys.stderr)
         return 1
 
     candidates = json.loads(input_path.read_text(encoding='utf-8'))
-    print(f'Loaded {len(candidates)} candidates from {input_path}')
+    if args.candidate:
+        candidates = [c for c in candidates if c.get('id') == args.candidate]
+        if not candidates:
+            print(f'Error: candidate {args.candidate} not found in {input_path}', file=sys.stderr)
+            return 1
+    print(f'Loaded {len(candidates)} candidate(s) from {input_path}')
 
     dc = docker.from_env()
     hc = httpx.Client(headers=headers, timeout=20)
@@ -230,8 +237,9 @@ def main() -> int:
         hc.close()
         dc.close()
 
-    Path(args.output).write_text(json.dumps(accepted, indent=2) + '\n', encoding='utf-8')
-    Path(args.rejected).write_text(json.dumps(rejected, indent=2) + '\n', encoding='utf-8')
+    if not args.candidate:
+        Path(args.output).write_text(json.dumps(accepted, indent=2) + '\n', encoding='utf-8')
+        Path(args.rejected).write_text(json.dumps(rejected, indent=2) + '\n', encoding='utf-8')
     print(f'Done: {len(accepted)} accepted, {len(rejected)} rejected.')
     return 0
 

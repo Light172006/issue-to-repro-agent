@@ -23,7 +23,7 @@ This dataset serves as the standardized, held-out evaluation benchmark for the I
 
 | ID | Library | Issue | Category | Symptom Kind | Expected / Reported Symptom | Split |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| `addict-28` | `mewwts/addict` | [#28](https://github.com/mewwts/addict/issues/28) | Feasible | Exception | `TypeError: __init__() takes at most 2 arguments` | Held-Out |
+| `addict-28` | `mewwts/addict` | [#28](https://github.com/mewwts/addict/issues/28) | Feasible | Exception | `AssertionError: assert {(0, 1): (1, 2)} == {0: 1, 1: 2, 2: 3}` | Held-Out |
 | `colorama-89` | `tartley/colorama` | [#89](https://github.com/tartley/colorama/issues/89) | Infeasible | Exception | `OSError: [WinError 87] The parameter is incorrect` (Win32 console buffer) | Development |
 | `colorama-110` | `tartley/colorama` | [#110](https://github.com/tartley/colorama/issues/110) | Infeasible | Exception | `OSError: [WinError 6] The handle is invalid` (Win32 kernel32 Console API) | Held-Out |
 | `gpustat-cuda` | `wookayin/gpustat` | [#102](https://github.com/wookayin/gpustat/issues/102) | Infeasible | Exception | `NVMLError: NVML Shared Library Not Found` (NVIDIA NVML hardware driver) | Held-Out |
@@ -49,7 +49,7 @@ This dataset serves as the standardized, held-out evaluation benchmark for the I
 - **Total Candidates:** 18
 - **Development Partition:** 11 candidates (9 Feasible, 2 Infeasible)
 - **Held-Out Partition:** 7 candidates (5 Feasible, 2 Infeasible)
-- **Held-Out Hash:** `53afdfe36c934366bfbaf7bb54a1c8dcfa75d50eb2f4fb549294a5dfea675b1e` (recorded in `bench/HELDOUT.sha256`)
+- **Held-Out Hash:** `25c3861a6997d70601735c4effda410ea142eb970beeafb13179bdf30642de9a` (recorded in `bench/HELDOUT.sha256`)
 
 > [!IMPORTANT]
 > **Strict Held-Out Policy:** Issues assigned to the `held_out` partition are permanently locked. They MUST NEVER be inspected for prompt tuning, prompt engineering, agent debugging, or failure retrospectives. They exist purely for unpolluted blind benchmark evaluation.

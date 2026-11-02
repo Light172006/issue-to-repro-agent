@@ -4,18 +4,18 @@
     "library": "mewwts/addict",
     "issue_number": 28,
     "issue_url": "https://github.com/mewwts/addict/issues/28",
-    "title": "deepcopy fails on empty Dict",
+    "title": "Initialization with list/sequence does not work properly",
     "category": "feasible",
-    "buggy_ref": "0a63cb9efbc4e68ef2cf0a639ae53bf193c3182a",
-    "fix_ref": "4a0fba9bc99c43d344d5c9077ce6ca2eebf09fd7",
-    "test_file_path": "tests/test_addict.py",
-    "test_code": "from copy import deepcopy\nfrom addict import Dict\n\ndef test_deepcopy_empty_dict():\n    d = Dict()\n    c = deepcopy(d)\n    assert isinstance(c, Dict)\n    assert c == d\n    c.a = 1\n    assert 'a' not in d\n",
+    "buggy_ref": "1ae29918391857bac904361ad6cf7b9a9c568632",
+    "fix_ref": "bc5a78e620ca59274ea3def7f60222dac8da994a",
+    "test_file_path": "test_addict.py",
+    "test_code": "from addict import Dict\n\ndef test_init_with_list_of_tuples():\n    b = [(0, 1), (1, 2), (2, 3)]\n    a = Dict(b)\n    assert a == {0: 1, 1: 2, 2: 3}\n",
     "symptom": {
       "kind": "exception",
-      "type": "TypeError"
+      "type": "AssertionError"
     },
-    "expected_behavior": "deepcopy(Dict()) returns a new Dict clone without raising TypeError",
-    "actual_behavior": "TypeError: __init__() takes at most 2 arguments (3 given)",
+    "expected_behavior": "Dict([(0, 1), (1, 2), (2, 3)]) initializes {0: 1, 1: 2, 2: 3}",
+    "actual_behavior": "AssertionError: assert {(0, 1): (1, 2)} == {0: 1, 1: 2, 2: 3}",
     "split": "held_out"
   },
   {
