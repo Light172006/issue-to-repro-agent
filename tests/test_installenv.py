@@ -1,5 +1,5 @@
 import subprocess
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import pytest
 
@@ -19,7 +19,7 @@ def scripted_run(responses):
 
 def test_date_bounded_install_records_commit_cutoff(tmp_path):
     run, calls = scripted_run([(0, '2020-01-02T01:02:03+00:00\n'), (0, ''), (0, ''), (0, ''), (0, '')])
-    result = resolve_install(Path('/repo'), tmp_path, ['pytest<8'], run=run, clock=lambda: 10)
+    result = resolve_install(PurePosixPath('/repo'), tmp_path, ['pytest<8'], run=run, clock=lambda: 10)
     assert result == {'strategy': 'date_bounded', 'reason_for_fallback': None,
                       'cutoff': '2020-01-02T01:02:03+00:00', 'install_duration_s': 0}
     assert calls[-1][0][-3:] == ['/repo', 'pytest', 'pytest<8']

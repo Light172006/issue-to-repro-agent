@@ -66,6 +66,14 @@ def resolve_commit(repo: str, version: str | None, client) -> tuple[str, str]:
 
 
 def _write_json(path: Path, data: dict):
+    """Atomically write JSON to path via a sibling temp file.
+
+    On Windows, os.replace raises PermissionError (WinError 5) when the
+    destination is concurrently locked.  Production writes are always
+    sequential; the retry guards the concurrent stress test and any
+    future caller.
+    """
+    import sys as _sys
     path.parent.mkdir(parents=True, exist_ok=True)
     filename = None
     try:
@@ -73,11 +81,22 @@ def _write_json(path: Path, data: dict):
             filename = f.name
             json.dump(data, f, indent=2)
             f.write('\n')
-        os.replace(filename, path)
-        filename = None
+        for _attempt in range(3):
+            try:
+                os.replace(filename, path)
+                filename = None
+                break
+            except PermissionError:
+                if _attempt == 2 or _sys.platform != 'win32':
+                    raise
+                import time as _time
+                _time.sleep(0.005)
     finally:
         if filename:
-            os.unlink(filename)
+            try:
+                os.unlink(filename)
+            except OSError:
+                pass
 
 
 # This script runs in a non-root container, with no host mounts or host keys.
