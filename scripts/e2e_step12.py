@@ -3,9 +3,21 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
+
+
+def _load_env(path: Path = Path('.env')) -> None:
+    if not path.is_file():
+        return
+    for line in path.read_text(encoding='utf-8').splitlines():
+        line = line.strip()
+        if not line or line.startswith('#') or '=' not in line:
+            continue
+        k, v = line.split('=', 1)
+        os.environ.setdefault(k.strip(), v.strip().strip('\'\"'))
 
 
 def _run_arm(url: str, arm: str, force_escalate_at_step: int | None = None) -> tuple[dict | None, Path | None, int]:
@@ -38,6 +50,7 @@ def _print_row(url: str, arm: str, data: dict | None, folder: Path | None, retur
 
 
 def main() -> int:
+    _load_env()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('issues', type=Path, help='One issue URL per line')
     parser.add_argument('--approve-paid', action='store_true')

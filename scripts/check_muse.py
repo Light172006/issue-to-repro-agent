@@ -1,9 +1,16 @@
 """One small Meta API integration check; run from the repository root."""
 import os
 from decimal import Decimal
+from pathlib import Path
 
 from repro.llm import Budget, OpenAIProvider, call_model, load_config
 
+if Path('.env').is_file():
+    for line in Path('.env').read_text(encoding='utf-8').splitlines():
+        line = line.strip()
+        if line and not line.startswith('#') and '=' in line:
+            k, v = line.split('=', 1)
+            os.environ.setdefault(k.strip(), v.strip().strip('\'\"'))
 key = os.environ.get('META_MODEL_API_KEY')
 if not key:
     raise SystemExit('Set META_MODEL_API_KEY in your shell before running this script.')

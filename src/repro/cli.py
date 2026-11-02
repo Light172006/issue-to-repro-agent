@@ -47,11 +47,23 @@ def _failed_result(budget: Budget | None, outcome: str, reason: str) -> AgentRes
                        budget.clock() - budget.started, reason=reason)
 
 
+def _load_env(path: Path = Path('.env')) -> None:
+    if not path.is_file():
+        return
+    for line in path.read_text(encoding='utf-8').splitlines():
+        line = line.strip()
+        if not line or line.startswith('#') or '=' not in line:
+            continue
+        k, v = line.split('=', 1)
+        os.environ.setdefault(k.strip(), v.strip().strip('\'\"'))
+
+
 @app.command()
 def main(issue_url: str, no_minimize: bool = typer.Option(False, '--no-minimize'),
          no_escalation: bool = typer.Option(False, '--no-escalation'),
          force_escalate_at_step: int | None = typer.Option(None, '--force-escalate-at-step', hidden=True, min=1)) -> None:
     """Fetch ISSUE_URL and attempt an offline reproduction."""
+    _load_env()
     key = os.environ.get('META_MODEL_API_KEY')
     if not key:
         raise typer.BadParameter('Set META_MODEL_API_KEY in your environment')
