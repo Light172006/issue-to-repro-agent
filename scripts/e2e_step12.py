@@ -12,7 +12,7 @@ from pathlib import Path
 def _load_env(path: Path = Path('.env')) -> None:
     if not path.is_file():
         return
-    for line in path.read_text(encoding='utf-8').splitlines():
+    for line in path.read_text(encoding='utf-8-sig').splitlines():
         line = line.strip()
         if not line or line.startswith('#') or '=' not in line:
             continue
@@ -33,7 +33,7 @@ def _run_arm(url: str, arm: str, force_escalate_at_step: int | None = None) -> t
         return None, None, completed.returncode
     try:
         folder = Path(folders[-1])
-        data = json.loads((folder / 'result.json').read_text(encoding='utf-8'))
+        data = json.loads((folder / 'result.json').read_text(encoding='utf-8-sig'))
         return data, folder, completed.returncode
     except (OSError, ValueError):
         return None, None, completed.returncode
@@ -56,7 +56,7 @@ def main() -> int:
     parser.add_argument('--approve-paid', action='store_true')
     parser.add_argument('--force-escalate-at-step', type=int, default=None)
     args = parser.parse_args()
-    urls = [line.strip() for line in args.issues.read_text(encoding='utf-8').splitlines()
+    urls = [line.strip() for line in args.issues.read_text(encoding='utf-8-sig').splitlines()
             if line.strip() and not line.lstrip().startswith('#')]
     print('Each issue uses up to three runs; each run has a $1 cap, so worst case is $3 per issue.')
     print('Example trace: 18,944 input and 968 output tokens; at Wonder rates that is $0.095136 for those seven calls.')

@@ -32,7 +32,7 @@ app = typer.Typer(add_completion=False)
 def _parser_fell_back(trace_path: Path) -> bool:
     """Fail closed when the parser could not produce a validated record."""
     try:
-        events = [json.loads(line) for line in trace_path.read_text(encoding='utf-8').splitlines()]
+        events = [json.loads(line) for line in trace_path.read_text(encoding='utf-8-sig').splitlines()]
         results = [event for event in events if event.get('event') == 'parser_result']
         return not results or results[-1].get('fallback') is not False
     except (OSError, ValueError, AttributeError):
@@ -50,7 +50,7 @@ def _failed_result(budget: Budget | None, outcome: str, reason: str) -> AgentRes
 def _load_env(path: Path = Path('.env')) -> None:
     if not path.is_file():
         return
-    for line in path.read_text(encoding='utf-8').splitlines():
+    for line in path.read_text(encoding='utf-8-sig').splitlines():
         line = line.strip()
         if not line or line.startswith('#') or '=' not in line:
             continue

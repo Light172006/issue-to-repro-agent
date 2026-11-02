@@ -94,7 +94,7 @@ def extract_versions(text: str, project: str | None = None) -> dict[str, str | N
     if project:
         name = re.escape(project)
         patterns = [
-            rf'(?im)^\s*[-*]?\s*{name}\s+version\s*[:=]\s*[`\"]?({VERSION})',
+            rf'(?im)^\s*[-*]?\s*{name}\s*(?:version)?\s*[:=]\s*[`\"]?({VERSION})',
             rf'(?is)"{name}"\s*:\s*\{{[^{{}}]{{0,400}}?"version"\s*:\s*"({VERSION})"',
             rf'(?i)\b{name}(?:\[[\w,-]+\])?\s*==\s*({VERSION})',
             rf'(?i)\b{name}\s+(?:version(?:\s+used\s+is)?\s*[:=]?\s*)({VERSION})',

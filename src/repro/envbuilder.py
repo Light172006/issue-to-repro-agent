@@ -196,7 +196,9 @@ class EnvironmentBuilder:
         base = self.docker.images.get(self.base_image)
         testdeps_code = Path(__file__).with_name('testdeps.py').read_text(encoding='utf-8')
         installenv_code = Path(__file__).with_name('installenv.py').read_text(encoding='utf-8')
-        installer = testdeps_code + '\n' + installenv_code
+        testdeps_body = re.sub(r'^from __future__ import annotations\s*\n?', '', testdeps_code, flags=re.MULTILINE)
+        installenv_body = re.sub(r'^from __future__ import annotations\s*\n?', '', installenv_code, flags=re.MULTILINE)
+        installer = 'from __future__ import annotations\n' + testdeps_body + '\n' + installenv_body
         installer_digest = hashlib.sha256(installer.encode()).hexdigest()
         digest = hashlib.sha256(json.dumps([repo.lower(), sha, base.id, 'builder-v4-date-resolution',
                                              installer_digest, test_dependencies]).encode()).hexdigest()[:32]
