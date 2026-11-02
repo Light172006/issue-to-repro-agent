@@ -10,10 +10,11 @@ import threading
 import time
 from pathlib import Path
 
-try:
-    from repro.testdeps import discover_test_dependencies
-except ImportError:
-    discover_test_dependencies = None
+if 'discover_test_dependencies' not in globals():
+    try:
+        from repro.testdeps import discover_test_dependencies
+    except ImportError:
+        discover_test_dependencies = None
 
 
 def _read_source_configs(source: Path) -> dict[str, str]:
