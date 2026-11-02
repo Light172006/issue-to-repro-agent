@@ -82,16 +82,18 @@ def _write_json(path: Path, data: dict):
             filename = f.name
             json.dump(data, f, indent=2)
             f.write('\n')
-        for _attempt in range(3):
+        max_attempts = 100 if _sys.platform == 'win32' else 1
+        for _attempt in range(max_attempts):
             try:
                 os.replace(filename, path)
                 filename = None
                 break
             except PermissionError:
-                if _attempt == 2 or _sys.platform != 'win32':
+                if _attempt == max_attempts - 1 or _sys.platform != 'win32':
                     raise
+                import random as _random
                 import time as _time
-                _time.sleep(0.005)
+                _time.sleep(0.005 + _random.uniform(0.002, 0.015))
     finally:
         if filename:
             try:
