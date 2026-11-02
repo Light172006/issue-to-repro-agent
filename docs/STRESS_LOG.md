@@ -59,3 +59,14 @@
   - `scripts/check_step11.py`: PASSED (both hardware-bound `not_feasible` and vague `needs_info` with reporter questions).
 - Offline test suite: 274 passed, 10 deselected, 9 subtests passed; run three consecutive times with identical counts (0 flakes). Ruff 0.17.3 clean across all files.
 - Paid model calls: $0.00 spent.
+
+## 2026-11-02 — C1 Windows file-locking retry hardening
+
+- Caught intermittent failure in test_parallel_atomic_metadata_writes_are_valid:
+  - 8 threads executing 40 concurrent writes targeting the same environment.json file on Windows NTFS triggered PermissionError: [WinError 5] Access is denied in os.replace.
+  - The previous 3-attempt / 5ms sleep window (15ms total) was insufficient to handle contention among 8 threads.
+  - Hardened _write_json in src/repro/envbuilder.py with up to 100 attempts on Windows and randomized backoff sleep (0.005 + random.uniform(0.002, 0.015)).
+  - Validated by running test_parallel_atomic_metadata_writes_are_valid 20 consecutive times in a subprocess loop: 20/20 passed cleanly.
+- Full offline test suite (274 passed, 10 deselected, 9 subtests) run three consecutive times: 0 failures, 0 flakes.
+- Commit: 8d75541 fix: harden atomic json write retry for Windows file lock contention.
+- Paid model calls: .00 spent.
