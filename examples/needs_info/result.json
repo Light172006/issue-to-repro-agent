@@ -1,0 +1,21 @@
+{
+  "outcome": "gave_up",
+  "status": "needs_info",
+  "status_detail": "The report lacks reproduction steps, observed behavior, and runnable code.",
+  "reason": "The report lacks reproduction steps, observed behavior, and runnable code.",
+  "steps": 0,
+  "cost_usd": "0",
+  "duration": 0.0,
+  "questions": [
+    "What exact steps reproduce the problem?",
+    "What happened instead? Please include the exact output or error.",
+    "Could you share a minimal runnable code example?"
+  ],
+  "confidence": null,
+  "checks": {
+    "symptom_match": null,
+    "repeated_runs": null,
+    "fixed_version": null
+  },
+  "verification": "not_run"
+}

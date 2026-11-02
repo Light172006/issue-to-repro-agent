@@ -84,3 +84,19 @@
   - `attrs #1348`: `spark-1` reached 25 steps ($0.211); `spark-2` stopped at step 9 ($0.052); `escalation` triggered at step 15, called Wonder ($0.043 Wonder cost), then caught `ProviderError` from Wonder and fell back cleanly to Spark without crashing.
 - Offline Test Suite: 277 offline tests passed, 10 deselected, 9 subtests passed (run 3 times without flakiness). Ruff clean across repository.
 - Spend: $1.31 today, lifetime ledger total $1.62.
+
+
+## 2026-11-03 — C2 Closeout & Wonder ProviderError Investigation
+
+- Root cause analysis of Wonder `ProviderError` on `attrs #1348` (Run ID: `f2928f6813ed475391d0f915890a9a49`):
+  - Request details: Turn 16 model call succeeded (7,777 input tokens, 614 output tokens, cost $0.043388, tool executed: `run_shell` examining `attr/_make.py`).
+  - At turn 17 preflight, `provider.count` was called for `muse-wonder-1.0`. The request payload size was 1,024 tokens.
+  - Replay test confirmed that Meta API `/responses/input_tokens` returns HTTP 200 with `{"object":"response.input_tokens","input_tokens":1024}` for this exact history, tool schema, and `reasoning: {'effort': 'minimal'}`.
+  - The underlying exception caught was a transient client network socket/DNS error (`httpcore.ConnectError: [Errno 11002] getaddrinfo failed`) communicating with `api.meta.ai`.
+  - Because `OpenAI(..., max_retries=0)` disables client-side background retries to enforce strict budget accountability, any single transient network glitch surfaces immediately to `call_model` as `ProviderError`.
+  - The agent loop handled this as designed: caught `ProviderError`, wrote `escalation_failed: ProviderError` to `trace.jsonl`, retained accounting, and cleanly fell back to `muse-spark-1.3` without crashing or breaching the run budget.
+- Added status examples to `examples/`:
+  - `examples/v0.2-boltons`: Status `reproduced`
+  - `examples/not_feasible`: Status `not_feasible` with reason and drafted `comment.md`
+  - `examples/needs_info`: Status `needs_info` with questions and drafted `comment.md`
+- Verification: Full offline suite (277 tests) and all 7 Docker integration tests passed. Working tree clean.

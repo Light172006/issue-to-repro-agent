@@ -1,0 +1,17 @@
+{
+  "outcome": "gave_up",
+  "status": "not_feasible",
+  "status_detail": "The report explicitly requires GPU, which this sandbox does not provide.",
+  "reason": "The report explicitly requires GPU, which this sandbox does not provide.",
+  "steps": 0,
+  "cost_usd": "0",
+  "duration": 0.0,
+  "questions": [],
+  "confidence": null,
+  "checks": {
+    "symptom_match": null,
+    "repeated_runs": null,
+    "fixed_version": null
+  },
+  "verification": "not_run"
+}
