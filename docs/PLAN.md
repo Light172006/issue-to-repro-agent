@@ -1,10 +1,10 @@
 # Remaining work and release gates
 
-Status: provisional. The event start is 2026-10-27; the exact submission deadline and time zone are not recorded. Reserve the final day as a buffer once the deadline is confirmed. No checkpoint is complete merely because its code exists. The owner runs Docker checks, approves each paid run, verifies labels, and creates tags.
+Status: Confirmed. Event start was 2026-10-27; submission deadline is **November 4, 2026**; feature/code freeze target is **November 3, 2026**. Final day (Nov 4) is reserved as an upload/submission buffer. No checkpoint is complete merely because its code exists. The owner runs Docker checks, approves each paid run, verifies labels, and creates tags.
 
 Common gate for each checkpoint: run the offline suite three times and ruff; log counts, failures, fixes and flaky tests in `docs/STRESS_LOG.md`. Exercise applicable empty, null, large, Unicode and malformed inputs; timeout, interrupted and partial writes; KeyboardInterrupt, concurrency, disk-full and missing credentials. Fault-inject provider errors, rate limits, malformed tool calls and runaway loops; verify run and dollar caps with random costs. Compare a fake-provider fixture run with saved evidence, scan generated outputs for secrets, audit available tools, and check temporary resources and containers. Mark Docker/network-only checks honestly and provide Windows commands. No paid calls without a trace-based estimate and explicit approval.
 
-## C1 — Close foundation and honesty gaps
+## C1 — Close foundation and honesty gaps (COMPLETED 2026-11-02)
 
 - Goal: establish a trustworthy baseline and make environment limitations visible.
 - Tasks: complete the audit and offline tests; verify the four statuses, questions and drafted comments; examine baseline-recording design and preserve actual observed failures without inventing them; diagnose the four `check_envs.py` cases and missing dependencies or incompatible pytest hooks. Do not insert issue-specific pins. Validate configuration and documentation against actual behavior; update HACKATHON. The four current environments have not established executable baseline suites.
@@ -14,7 +14,7 @@ Common gate for each checkpoint: run the offline suite three times and ruff; log
 - Risks: the current builder does not install all historical test dependencies; matching manually pinned suite counts may be impossible without a general design change. Options are dropping cases or explicitly treating them as environment-limited.
 - Cut fallback: defer optional documentation polish, never honesty or the verifier.
 
-## C2 — Validate escalation
+## C2 — Validate escalation (COMPLETED 2026-11-02)
 
 - Goal: measure whether Wonder helps stalled Spark runs without exceeding limits.
 - Tasks: first run forced-handoff plumbing on the owner's controlled fixture; then run Spark-only twice per eligible issue; run escalation only when both Spark runs fail. Compare verifier-confirmed outcomes and report even if there is no improvement. Fix the comparison script if it does not enforce this sequence. Current issue list has only four entries, and all four currently have environment problems.
