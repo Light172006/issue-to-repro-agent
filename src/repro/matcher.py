@@ -12,6 +12,7 @@ _EXCEPTION = re.compile(
     r'^\s*(?:E\s+)?(?P<type>(?:[A-Za-z_][\w.]*(?:Error|Exception|Warning|Exit|Interrupt)'
     r'|Exception|Warning|StopIteration|GeneratorExit))'
     r'(?::[ \t]*(?P<message>[^\r\n]*))?[ \t]*$', re.MULTILINE)
+_ANSI = re.compile(r'\x1b\[[0-9;]*[a-zA-Z]')
 _PY_FRAME = re.compile(r'^\s*File "([^"\n]+)", line \d+, in ([\w.<>]+)', re.MULTILINE)
 _IPY_FRAME = re.compile(r'^\s*File\s+(.+?\.py):\d+,\s+in\s+([\w.]+)', re.MULTILINE)
 _PYTEST_FRAME = re.compile(r'^\s*(.+?\.py):\d+:\s+in\s+([\w.<>]+)', re.MULTILINE)
@@ -35,6 +36,7 @@ def extract_failure(output: str) -> FailureSignature | None:
     """Extract the final exception, excluding pytest's short summary."""
     if not isinstance(output, str):
         return None
+    output = _ANSI.sub('', output)
     body = re.split(r'^=+\s*short test summary info\s*=+', output, maxsplit=1, flags=re.MULTILINE)[0]
     errors = list(_EXCEPTION.finditer(body))
     if not errors:

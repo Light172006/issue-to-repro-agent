@@ -11,6 +11,7 @@ from repro.matcher import extract_failure
 _SUMMARY = re.compile(r'^=+\s*([^\n]*\b(?:passed|failed|skipped|errors?)\b[^\n]*)=+\s*$', re.MULTILINE)
 _COUNT = re.compile(r'\b(\d+)\s+(passed|failed|skipped|errors?)\b')
 _FAILED = re.compile(r'^FAILED\s+(\S+)', re.MULTILINE)
+_ANSI = re.compile(r'\x1b\[[0-9;]*[a-zA-Z]')
 _HEADER = re.compile(r'^_+\s+(.+?)\s+_+\s*$', re.MULTILINE)
 
 
@@ -28,7 +29,7 @@ def baseline_from_result(result) -> dict:
     base = {'status': 'runner_error', 'counts': None, 'failures': []}
     if result.timed_out:
         return {**base, 'status': 'timeout'}
-    output = result.output
+    output = _ANSI.sub('', result.output)
     if '... output truncated:' in output or (result.original_length is not None and
             result.original_length > len(output.encode('utf-8'))):
         return {**base, 'status': 'truncated'}

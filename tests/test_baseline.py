@@ -140,3 +140,11 @@ def test_same_test_id_rejected_even_when_signature_differs():
     baseline = baseline_from_result(result())
     observed = OUTPUT.replace('ValueError: broken', 'ValueError: different')
     assert baseline_rejection(baseline, observed)
+
+
+def test_baseline_handles_ansi_color_escapes():
+    ansi_output = '\x1b[32m======================= \x1b[32m\x1b[1m444 passed\x1b[0m, \x1b[33m23 skipped\x1b[0m\x1b[32m in 0.99s\x1b[0m\x1b[32m ========================\x1b[0m\n'
+    baseline = baseline_from_result(result(ansi_output, 0))
+    assert baseline['status'] == 'complete'
+    assert baseline['counts'] == {'passed': 444, 'failed': 0, 'skipped': 23}
+    assert baseline['failures'] == []
