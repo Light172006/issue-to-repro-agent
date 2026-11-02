@@ -49,3 +49,12 @@ def test_invalid_and_huge_inputs_are_handled():
 def test_same_input_gives_same_plan():
     files = {'tox.ini': '[testenv]\ndeps =\n pytest<8\n', 'requirements-dev.txt': 'freezegun\n'}
     assert discover_test_dependencies(files) == discover_test_dependencies(dict(reversed(list(files.items()))))
+
+
+def test_tox_ignores_py2_and_skips_duplicate_package_pins():
+    files = {
+        'tox.ini': '[testenv]\ndeps =\n    pytest==7.2.0\n    pytest-cov==4.0.0\n[testenv:py27]\ndeps =\n    pytest==4.6.11\n    pytest-cov==2.12\n[testenv:lint]\ndeps =\n    flake8\n',
+    }
+    plan = discover_test_dependencies(files)
+    assert plan.requirements == ('pytest==7.2.0', 'pytest-cov==4.0.0')
+    assert 'flake8' not in plan.requirements

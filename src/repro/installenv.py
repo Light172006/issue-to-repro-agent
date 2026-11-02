@@ -150,7 +150,9 @@ def resolve_install(source: Path, root: Path, extra: list[str], *, run=run_comma
         if strategy == 'date_bounded' and no_solution:
             previous_reason = 'date_bounded_resolution_failed'
             continue
+        print(f'Installer failed ({strategy}):\n{output}', file=sys.stderr)
         raise RuntimeError('dependency resolution failed' if no_solution else 'environment installation failed')
+    print(f'Installer failed exhausted strategies:\n{output}', file=sys.stderr)
     raise RuntimeError('dependency resolution failed')
 
 

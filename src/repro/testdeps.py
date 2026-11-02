@@ -27,14 +27,20 @@ def discover_test_dependencies(files: dict[str, str]) -> DependencyPlan:
     warnings: list[str] = []
     configs: list[str] = []
 
+    seen_packages: set[str] = set()
+
     def add(requirement: object, origin: str) -> None:
         if not isinstance(requirement, str):
             warnings.append(f'{origin}: dynamic or non-string dependency')
             return
         requirement = requirement.strip()
         if _SIMPLE.fullmatch(requirement):
-            if requirement not in requirements:
-                requirements.append(requirement)
+            pkg_name = re.split(r'[<>=!~;\[]', requirement)[0].strip().lower().replace('-', '_')
+            if pkg_name in seen_packages:
+                warnings.append(f'{origin}: duplicate dependency {requirement}')
+                return
+            seen_packages.add(pkg_name)
+            requirements.append(requirement)
         elif requirement:
             warnings.append(f'{origin}: unsupported dependency declaration')
 
@@ -68,7 +74,8 @@ def discover_test_dependencies(files: dict[str, str]) -> DependencyPlan:
             if config.has_section('options.extras_require'):
                 extras.extend(x for x in _EXTRAS if config.has_option('options.extras_require', x) and x not in extras)
             for section in config.sections():
-                if section.startswith('testenv') and config.has_option(section, 'deps'):
+                valid_env = section == 'testenv' or (section.startswith('testenv:') and not re.search(r'py(?:thon)?2|lint|docs?|flake8|style|format|black|isort|typing|mypy', section, re.IGNORECASE))
+                if valid_env and config.has_option(section, 'deps'):
                     for dep in config.get(section, 'deps').splitlines():
                         add(dep, f'{name}:{section}')
                 if section in ('pytest', 'tool:pytest') and config.has_option(section, 'addopts'):
