@@ -90,3 +90,28 @@ def test_validate_infeasible_rejects_unknown_category():
     ok, msg = validate_infeasible(candidate)
     assert ok is False
     assert 'Invalid infeasible category' in msg
+
+
+def test_heldout_sha256_matches_heldout_json():
+    import hashlib
+    from pathlib import Path
+
+    heldout_bytes = Path('bench/held_out.json').read_bytes()
+    expected_hash = hashlib.sha256(heldout_bytes).hexdigest()
+    recorded_hash = Path('bench/HELDOUT.sha256').read_text(encoding='utf-8').split()[0]
+    assert recorded_hash == expected_hash
+
+
+def test_validate_dataset_cli_candidate_spot_check():
+    import subprocess
+    import sys
+
+    res = subprocess.run(
+        [sys.executable, 'scripts/validate_dataset.py', '--candidate', 'validators-dns'],
+        capture_output=True,
+        text=True,
+        check=False
+    )
+    assert res.returncode == 0
+    assert '[ACCEPTED] validators-dns' in res.stdout
+

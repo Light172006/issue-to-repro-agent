@@ -1,5 +1,24 @@
 [
   {
+    "actual_behavior": "AssertionError: assert isinstance(Dict, CustomDict)",
+    "buggy_ref": "1a9b80b2b3604d75ada305c3c0bb9a9de6a643b1",
+    "category": "feasible",
+    "expected_behavior": "d.a is instance of CustomDict",
+    "fix_ref": "3591a7f2c2fe4cd3f97bf457457cb830210cc8f5",
+    "id": "addict-102",
+    "issue_number": 102,
+    "issue_url": "https://github.com/mewwts/addict/pull/102",
+    "library": "mewwts/addict",
+    "split": "held_out",
+    "symptom": {
+      "kind": "exception",
+      "type": "AssertionError"
+    },
+    "test_code": "from addict import Dict\n\nclass CustomDict(Dict):\n    pass\n\ndef test_subclass_dict():\n    d = CustomDict()\n    d.a.b = 1\n    assert isinstance(d.a, CustomDict)\n",
+    "test_file_path": "test_addict_102.py",
+    "title": "Fixed Subclassing Dict Issues (Issue #101)"
+  },
+  {
     "actual_behavior": "AssertionError: assert {(0, 1): (1, 2)} == {0: 1, 1: 2, 2: 3}",
     "buggy_ref": "1ae29918391857bac904361ad6cf7b9a9c568632",
     "category": "feasible",
@@ -25,6 +44,8 @@
     "expected_behavior": "AnsiToWin32 handles redirected character device without raising OSError",
     "fix_ref": "9a30cf7866e41b9d4f24ef3d3957297e59bbf281",
     "id": "colorama-110",
+    "infeasible_category": "os",
+    "infeasible_evidence": "Requires Windows OS kernel32 console APIs not present in Linux sandbox.",
     "infeasible_reason": "Requires Windows kernel32 Win32 Console API (kernel32.GetConsoleMode), which is unavailable in the Linux execution sandbox.",
     "issue_number": 110,
     "issue_url": "https://github.com/tartley/colorama/issues/110",
@@ -45,6 +66,8 @@
     "expected_behavior": "gpustat queries live NVIDIA GPU hardware",
     "fix_ref": "7967b2ffeb4a86b3602581c3c9ca08eec9b6b761",
     "id": "gpustat-cuda",
+    "infeasible_category": "hardware",
+    "infeasible_evidence": "Requires physical NVIDIA GPU hardware and proprietary NVIDIA NVML/CUDA drivers absent in container sandbox.",
     "infeasible_reason": "Requires physical NVIDIA GPU hardware and proprietary NVIDIA NVML/CUDA drivers (/dev/nvidia* and libnvidia-ml.so), which are absent in standard CI and container sandboxes.",
     "issue_number": 102,
     "issue_url": "https://github.com/wookayin/gpustat/issues/102",
@@ -59,79 +82,60 @@
     "title": "gpustat crashes when NVIDIA NVML driver library is missing"
   },
   {
-    "actual_behavior": "AttributeError: 'NoneType' object has no attribute 'match'",
-    "buggy_ref": "cbb5fc1d604e386444101e4ec9d9ca7e8838334b",
+    "actual_behavior": "AssertionError: assert 'alpha' == 'alpha.0'",
+    "buggy_ref": "1e8757912f633684e1a65d9d7c7e2270c3c79928",
     "category": "feasible",
-    "expected_behavior": "DateTime(format=\"\") raises ValidationError on deserialize",
-    "fix_ref": "8313423719bfd0a87a1cf71f81014e7ce21d3e1d",
-    "id": "marshmallow-2901",
-    "issue_number": 2901,
-    "issue_url": "https://github.com/marshmallow-code/marshmallow/issues/2901",
-    "library": "marshmallow-code/marshmallow",
-    "split": "held_out",
-    "symptom": {
-      "kind": "exception",
-      "type": "AttributeError"
-    },
-    "test_code": "import pytest\nfrom marshmallow.fields import DateTime\nfrom marshmallow.exceptions import ValidationError\n\ndef test_datetime_empty_format_deserialization():\n    field = DateTime(format='')\n    with pytest.raises(ValidationError):\n        field.deserialize('2024-01-01')\n",
-    "test_file_path": "tests/test_fields.py",
-    "title": "DateTime deserialization raises AttributeError when format string is empty"
-  },
-  {
-    "actual_behavior": "ValidationError: {'child': {'value': ['Unknown field.']}}",
-    "buggy_ref": "e35df505db1eec70d30fe9403d52c78f8cb0a845",
-    "category": "feasible",
-    "expected_behavior": "Pluck field respects empty string data_key and loads data correctly",
-    "fix_ref": "da9ea81883398939634e34e5a95260840b374971",
-    "id": "marshmallow-3082",
-    "issue_number": 3082,
-    "issue_url": "https://github.com/marshmallow-code/marshmallow/issues/3082",
-    "library": "marshmallow-code/marshmallow",
-    "split": "held_out",
-    "symptom": {
-      "kind": "exception",
-      "type": "ValidationError"
-    },
-    "test_code": "from marshmallow import Schema, fields\n\nclass Child(Schema):\n    value = fields.Int(data_key='')\n\nclass Parent(Schema):\n    child = fields.Pluck(Child, 'value')\n\ndef test_pluck_empty_string_data_key():\n    schema = Parent()\n    assert schema.load({'child': 2}) == {'child': {'value': 2}}\n",
-    "test_file_path": "tests/test_fields.py",
-    "title": "Pluck field ignores empty string data_key during load"
-  },
-  {
-    "actual_behavior": "AssertionError: assert [[]] == []",
-    "buggy_ref": "cf2206c9e0d16be99c4ff4d5eaec4d9a2ff5b4e7",
-    "category": "feasible",
-    "expected_behavior": "chunked_even([], n) yields nothing",
-    "fix_ref": "0fbc4ef7dfc33db6eb69c6cfaf19b8cf6b445851",
-    "id": "more-itertools-1309",
-    "issue_number": 1309,
-    "issue_url": "https://github.com/more-itertools/more-itertools/issues/1309",
-    "library": "more-itertools/more-itertools",
+    "expected_behavior": "v.bump_build() on '1.2.3+alpha' appends '.0' to produce 'alpha.0'",
+    "fix_ref": "ea2524a51767cefab58a9b3bb6bcf38e5cdc7d54",
+    "id": "semver-480",
+    "issue_number": 480,
+    "issue_url": "https://github.com/python-semver/python-semver/pull/480",
+    "library": "python-semver/python-semver",
     "split": "held_out",
     "symptom": {
       "kind": "exception",
       "type": "AssertionError"
     },
-    "test_code": "from more_itertools import chunked_even\n\ndef test_chunked_even_empty_input():\n    assert list(chunked_even([], 3)) == []\n",
-    "test_file_path": "tests/test_more_itertools.py",
-    "title": "chunked_even yields uneven trailing chunk on empty input"
+    "test_code": "from semver import Version\n\ndef test_bump_build_digitless_metadata():\n    v = Version.parse('1.2.3+alpha')\n    bumped = v.bump_build()\n    assert bumped.build == 'alpha.0'\n    assert str(bumped) == '1.2.3+alpha.0'\n",
+    "test_file_path": "tests/test_bump_build_digitless.py",
+    "title": "Fix bump_build() silently returning an unchanged version for digitless build metadata"
   },
   {
-    "actual_behavior": "MultipleInvalid: length of value must be at least 0",
-    "buggy_ref": "9a3b610c1f5431668f4e24cf745db4591f480392",
+    "actual_behavior": "AssertionError: assert '0 unexpected keyword' not in \"replace() got 0 unexpected keyword argument(s): \"",
+    "buggy_ref": "9ef41316dbe85f7d0fae6e396c45a1bbf69ebb29",
     "category": "feasible",
-    "expected_behavior": "Length(min=0) accepts empty string and returns empty string",
-    "fix_ref": "397ae1c4be8b248408ae9741f021e5b8d2ea234b",
-    "id": "voluptuous-451",
-    "issue_number": 451,
-    "issue_url": "https://github.com/alecthomas/voluptuous/issues/451",
-    "library": "alecthomas/voluptuous",
+    "expected_behavior": "v.replace(major=None) preserves constructor TypeError without saying 'got 0 unexpected keyword argument(s)'",
+    "fix_ref": "0bd62d4547c808233f6e033059a98218c9b637c1",
+    "id": "semver-501",
+    "issue_number": 501,
+    "issue_url": "https://github.com/python-semver/python-semver/pull/501",
+    "library": "python-semver/python-semver",
     "split": "held_out",
     "symptom": {
       "kind": "exception",
-      "type": "MultipleInvalid"
+      "type": "AssertionError"
     },
-    "test_code": "from voluptuous import Length\n\ndef test_length_empty_string_min_zero():\n    validator = Length(min=0)\n    assert validator('') == ''\n",
-    "test_file_path": "voluptuous/tests/test_validators.py",
-    "title": "Empty string rejected by Length validator when min=0"
+    "test_code": "import pytest\nfrom semver import Version\n\ndef test_replace_preserves_constructor_type_error():\n    v = Version.parse('1.2.3')\n    with pytest.raises(TypeError) as excinfo:\n        v.replace(major=None)\n    assert '0 unexpected keyword' not in str(excinfo.value)\n",
+    "test_file_path": "tests/test_replace_type_error.py",
+    "title": "Preserve constructor TypeError in Version.replace"
+  },
+  {
+    "actual_behavior": "AssertionError: assert '|:----------|----------:|' in res",
+    "buggy_ref": "26ccb780f4ae05995485e6f3199bcc5f7214decf",
+    "category": "feasible",
+    "expected_behavior": "github tablefmt uses column alignment indicators '|:----------|----------:|'",
+    "fix_ref": "8014ec66820c89307005b26f878119baa5bf6932",
+    "id": "tabulate-410",
+    "issue_number": 410,
+    "issue_url": "https://github.com/astanin/python-tabulate/pull/410",
+    "library": "astanin/python-tabulate",
+    "split": "held_out",
+    "symptom": {
+      "kind": "exception",
+      "type": "AssertionError"
+    },
+    "test_code": "from tabulate import tabulate\n\ndef test_github_alignment():\n    table = [['spam', 41.9999], ['eggs', 451]]\n    headers = ['strings', 'numbers']\n    res = tabulate(table, headers, tablefmt='github')\n    assert '|:----------|----------:|' in res\n",
+    "test_file_path": "test_tab_410.py",
+    "title": "Fix alignments in github tables"
   }
 ]

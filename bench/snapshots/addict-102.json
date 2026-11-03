@@ -1,0 +1,15 @@
+{
+  "schema_version": 2,
+  "repo": "mewwts/addict",
+  "number": 102,
+  "reporter": "MisterVladimir",
+  "reporter_type": "User",
+  "body": "`Dict` subclasses' child nodes are now reflect the expected behavior that they're instances of that subclass instead of `Dict`s. Without this change, daughter nodes of subclass instances raise Attribute or other errors. \r\n\r\nAdded tests appropriate for these changes. 100% of tests passed.\r\n\r\nSee https://github.com/mewwts/addict/issues/101",
+  "comments": [
+    {
+      "user": "coveralls",
+      "author_association": "NONE",
+      "body": "\n[![Coverage Status](https://coveralls.io/builds/18611933/badge)](https://coveralls.io/builds/18611933)\n\nCoverage remained the same at 100.0% when pulling **[COMMIT_REMOVED] on MisterVladimir:master** into **[COMMIT_REMOVED] on mewwts:master**.\n"
+    }
+  ]
+}

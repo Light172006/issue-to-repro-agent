@@ -8,6 +8,7 @@ import docker
 import httpx
 
 sys.stdout.reconfigure(encoding='utf-8')
+sys.path.insert(0, 'src')
 sys.path.insert(0, '.')
 
 for line in Path('.env').read_text(encoding='utf-8-sig').splitlines():

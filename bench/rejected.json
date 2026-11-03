@@ -1,5 +1,23 @@
 [
   {
+    "candidate": "sqlparse-826",
+    "repo": "andialbrecht/sqlparse",
+    "issue_number": 826,
+    "reason": "Rejected: Unverified synthetic commit SHA (HTTP 422 No commit found on GitHub); excluded in favor of verified real PRs."
+  },
+  {
+    "candidate": "tabulate-408",
+    "repo": "astanin/python-tabulate",
+    "issue_number": 408,
+    "reason": "Rejected: Unverified synthetic commit SHA (HTTP 422 No commit found on GitHub); excluded in favor of verified real PRs."
+  },
+  {
+    "candidate": "tabulate-394",
+    "repo": "astanin/python-tabulate",
+    "issue_number": 394,
+    "reason": "Rejected: Baseline test suite execution timed out (>60s) during environment baseline capture."
+  },
+  {
     "candidate": "tabulate-366",
     "repo": "astanin/python-tabulate",
     "issue_number": 366,
@@ -22,5 +40,35 @@
     "repo": "samuelcolvin/dirty-equals",
     "issue_number": 109,
     "reason": "Rejected: Repository test suite requires optional extra [pydantic] not declared in test dependencies, causing baseline collection_error and rendering baseline inconclusive."
+  },
+  {
+    "candidate": "marshmallow-3004",
+    "repo": "marshmallow-code/marshmallow",
+    "issue_number": 3004,
+    "reason": "Rejected: Environment build exceeded 300s timeout threshold during date-bounded dependency resolution."
+  },
+  {
+    "candidate": "more-itertools-1322",
+    "repo": "more-itertools/more-itertools",
+    "issue_number": 1322,
+    "reason": "Rejected: Ground-truth test unexpectedly passed at buggy commit; bug was not reliably reproduced without full generator instrumentation."
+  },
+  {
+    "candidate": "more-itertools-1342",
+    "repo": "more-itertools/more-itertools",
+    "issue_number": 1342,
+    "reason": "Rejected: Final observed exception type at buggy commit did not match reported symptom contract."
+  },
+  {
+    "candidate": "voluptuous-542",
+    "repo": "alecthomas/voluptuous",
+    "issue_number": 542,
+    "reason": "Rejected: Repository test suite exhibited inconclusive baseline on dataclass schema integration."
+  },
+  {
+    "candidate": "sqlparse-868",
+    "repo": "andialbrecht/sqlparse",
+    "issue_number": 868,
+    "reason": "Rejected: Build-time sphinx/requests documentation dependencies experienced transient SSL network timeouts on pythonhosted.org."
   }
 ]

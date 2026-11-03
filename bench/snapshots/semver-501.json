@@ -1,0 +1,9 @@
+{
+  "schema_version": 2,
+  "repo": "python-semver/python-semver",
+  "number": 501,
+  "reporter": "Zhuyuyangyy",
+  "reporter_type": "User",
+  "body": "## Problem\n\n`Version.replace()` catches every `TypeError` from the constructor and rewrites it as an unexpected-keyword error, even when all keyword names are valid:\n\n```python\nfrom semver import Version\nVersion.parse(\"1.2.3\").replace(major=None)\n# TypeError: replace() got 0 unexpected keyword argument(s):\n```\n\nThe actual problem is the value passed to `int()`, not an unknown keyword. The same happens for `minor` and `patch`, or an object that cannot be converted to an integer. This is a diagnostic fix; the exception type and accepted inputs do not change.\n\n## Change\n\nRe-raise the original constructor exception when there are no unknown keys. Keep the existing custom error for genuinely unknown keywords, and keep subclass construction unchanged.\n\nAdd six regression cases covering the three numeric components and two invalid value types. Each checks that the constructor's original error is retained; all six fail before the fix.\n\n## Validation\n\nPython 3.12.3:\n\n- `python -m pytest -q`: **517 passed, 1 skipped**, 100% reported statement/branch coverage.\n- `git diff --check`: passed.\n- Ruff on the two touched files reports the same 60 pre-existing findings on the baseline and patched versions; no unrelated lint cleanup is included.\n\nAI assistance was used to prepare this patch and tests. The failure and test results above were reproduced locally.\n",
+  "comments": []
+}
