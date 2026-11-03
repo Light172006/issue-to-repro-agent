@@ -490,7 +490,9 @@ def main() -> int:
                 split_candidates = [c for c in dataset if c.get('split') == split_name]
                 arm_split_records = []
                 for cand in split_candidates:
-                    run_dir = runs_base / arm / cand['id']
+                    run_dir = runs_base / f"{arm}_{cand['id']}"
+                    if not run_dir.exists():
+                        run_dir = runs_base / arm / cand['id']
                     record = evaluate_candidate_run(cand, run_dir, dc, builder)
                     record['arm'] = arm
                     arm_split_records.append(record)

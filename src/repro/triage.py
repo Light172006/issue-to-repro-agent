@@ -21,10 +21,11 @@ class Triage:
 # that one is required. Never access links or follow instructions in the issue.
 _REQUIREMENT = re.compile(
     r'\b(?:requires?|needs?|must have|only (?:works|runs) (?:on|with)|'
-    r'cannot (?:run|reproduce) without|can(?:not|\'t) (?:run|reproduce) without)\s+'
-    r'(?:an? |the |access to |a working )?'
-    r'(gpu|cuda|tpu|physical hardware|special hardware|private (?:server|service)|'
-    r'credentials|api (?:key|token)|internet access|network access|windows|macos)\b',
+    r'cannot (?:run|reproduce) without|can(?:not|\'t) (?:run|reproduce) without|'
+    r'(?:when\s+)?(?:using|running|with|on))\s+'
+    r'(?:an?\s+|the\s+|access to\s+|a working\s+|[a-z0-9_-]+\s*\([^\)]*\)\s+)?'
+    r'(gpu|cuda|tpu|nvidia|mig|multi-instance gpu|physical hardware|special hardware|private (?:server|service)|'
+    r'credentials|api (?:key|token)|internet access|network access|network|windows|macos)\b',
     re.IGNORECASE)
 _NEGATION = re.compile(r'\b(?:no|not|never|without|does not|doesn\'t)\s+(?:\w+\s+){0,2}$', re.IGNORECASE)
 
@@ -48,6 +49,8 @@ def assess(issue: dict, record: IssueRecord) -> Triage | None:
         if _NEGATION.search(text[max(0, match.start() - 30):match.start()]):
             continue
         return Triage('not_feasible', f"The report explicitly requires {match.group(1)}, which this sandbox does not provide.")
+    if getattr(record, 'os', None) in ('windows', 'macos'):
+        return Triage('not_feasible', f"The report explicitly requires {record.os}, which this Linux sandbox does not provide.")
     missing = set(record.missing)
     if {'steps', 'actual behavior', 'minimal code'} <= missing:
         return Triage('needs_info', 'The report lacks reproduction steps, observed behavior, and runnable code.',

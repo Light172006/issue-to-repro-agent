@@ -415,7 +415,7 @@ def run_single_candidate(
         raise FileNotFoundError(f'Snapshot file {snapshot_path} not found')
 
     snapshot = load_candidate_snapshot(snapshot_path)
-    run_dir = output_base / arm / cid
+    run_dir = Path('runs') / f'{arm}_{cid}'
     run_dir.mkdir(parents=True, exist_ok=True)
 
     limits = load_config(config_dir / 'limits.yaml')
@@ -423,7 +423,7 @@ def run_single_candidate(
         limits.setdefault('escalation', {})['enabled'] = False
     models = load_config(config_dir / 'models.yaml')
     model = load_config(config_dir / 'parser.yaml')['default_model']
-    ledger_path = output_base / 'spend.sqlite'
+    ledger_path = Path('runs') / 'spend.sqlite'
 
     # Thread-safe budget initialization
     budget = Budget(ledger_path, limits)
