@@ -138,7 +138,7 @@ def evaluate_candidate_run(
             'status': status,
             'is_correct': False,
             'verdict': 'incorrect',
-            'failure_category': 'false_positive_attempt' if status == 'candidate_found' else status,
+            'failure_category': 'false_positive_attempt' if status in ('candidate_found', 'reproduced') else status,
             'cost_usd': cost_usd,
             'duration': duration,
             'buggy_exit': None,
@@ -147,7 +147,7 @@ def evaluate_candidate_run(
         }
 
     # Case 2: Feasible issue
-    if status != 'candidate_found' or not test_file.is_file():
+    if status not in ('candidate_found', 'reproduced') or not test_file.is_file():
         return {
             'candidate_id': cid,
             'split': candidate.get('split', 'development'),
@@ -525,3 +525,4 @@ def main() -> int:
 
 if __name__ == '__main__':
     sys.exit(main())
+

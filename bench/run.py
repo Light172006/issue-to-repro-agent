@@ -77,6 +77,8 @@ def load_candidate_snapshot(snapshot_path: Path) -> dict[str, Any]:
 
 def extract_python_code(text: str) -> str | None:
     """Extract python code from markdown block or return raw text if valid AST."""
+    if not text:
+        return None
     matches = _CODE_BLOCK_RE.findall(text)
     if matches:
         candidate_code = matches[0].strip()
@@ -86,8 +88,14 @@ def extract_python_code(text: str) -> str | None:
         except SyntaxError:
             pass
     try:
-        ast.parse(text)
-        return text.strip()
+        tree = ast.parse(text)
+        has_logic = any(
+            isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Assert, ast.Import, ast.ImportFrom))
+            for node in ast.walk(tree)
+        )
+        if has_logic:
+            return text.strip()
+        return None
     except SyntaxError:
         return None
 
@@ -132,7 +140,7 @@ def extract_text_from_reply(reply: Any) -> str:
         c = getattr(message, "content")
         if isinstance(c, str):
             return c
-    return str(message)
+    return ""
 
 
 def run_baseline_a_candidate(
@@ -179,6 +187,7 @@ def run_baseline_a_candidate(
             model_config=models,
             trace_path=str(trace_path),
             max_output_tokens=2048,
+            reasoning_effort='minimal',
             phase='baseline_a'
         )
         content = extract_text_from_reply(reply)
@@ -410,6 +419,8 @@ def run_single_candidate(
     run_dir.mkdir(parents=True, exist_ok=True)
 
     limits = load_config(config_dir / 'limits.yaml')
+    if no_escalation:
+        limits.setdefault('escalation', {})['enabled'] = False
     models = load_config(config_dir / 'models.yaml')
     model = load_config(config_dir / 'parser.yaml')['default_model']
     ledger_path = output_base / 'spend.sqlite'

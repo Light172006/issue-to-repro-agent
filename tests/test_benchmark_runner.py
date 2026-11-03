@@ -231,3 +231,4 @@ def test_format_results_markdown():
     assert "85.7%" in md
     assert "Baseline B" in md
     assert "*Not Run*" in md
+
