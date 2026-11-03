@@ -257,6 +257,7 @@ def call_model(*, provider, model: str, messages: list, tools: list | None,
     tools = json.loads(json.dumps(tools)) if tools else None
     if type(provider) is OpenAIProvider:
         minimum_prices = {'muse-spark-1.3': (Decimal('1.25'), Decimal('4.25')),
+                          'muse-spark-1.3-contributor': (Decimal('1.25'), Decimal('4.25')),
                           'muse-wonder-1.0': (Decimal(4), Decimal(20))}
         if model not in minimum_prices:
             raise ValueError('Only configured Meta text models are supported')

@@ -92,6 +92,49 @@ def extract_python_code(text: str) -> str | None:
         return None
 
 
+def extract_text_from_reply(reply: Any) -> str:
+    """Extract plain text response from diverse model provider Reply outputs."""
+    if reply is None:
+        return ""
+    message = getattr(reply, "message", reply)
+    if isinstance(message, str):
+        return message
+    if isinstance(message, dict):
+        if "content" in message and isinstance(message["content"], str):
+            return message["content"]
+        if "text" in message and isinstance(message["text"], str):
+            return message["text"]
+    pieces = []
+    if isinstance(message, list):
+        for item in message:
+            if isinstance(item, str):
+                pieces.append(item)
+            elif isinstance(item, dict):
+                if "content" in item and isinstance(item["content"], str):
+                    pieces.append(item["content"])
+                elif "text" in item and isinstance(item["text"], str):
+                    pieces.append(item["text"])
+            else:
+                content = getattr(item, "content", None)
+                if isinstance(content, str):
+                    pieces.append(content)
+                elif isinstance(content, list):
+                    for part in content:
+                        if isinstance(part, str):
+                            pieces.append(part)
+                        elif isinstance(getattr(part, "text", None), str):
+                            pieces.append(part.text)
+                elif hasattr(item, "text") and isinstance(item.text, str):
+                    pieces.append(item.text)
+    if pieces:
+        return "".join(pieces)
+    if hasattr(message, "content"):
+        c = getattr(message, "content")
+        if isinstance(c, str):
+            return c
+    return str(message)
+
+
 def run_baseline_a_candidate(
     candidate: dict[str, Any],
     snapshot: dict[str, Any],
@@ -138,8 +181,7 @@ def run_baseline_a_candidate(
             max_output_tokens=2048,
             phase='baseline_a'
         )
-        raw_msg = reply.message
-        content = raw_msg.content if hasattr(raw_msg, 'content') else (raw_msg.get('content') if isinstance(raw_msg, dict) else str(raw_msg))
+        content = extract_text_from_reply(reply)
         code = extract_python_code(content)
         duration = budget.clock() - start_time
         cost_usd = str(Decimal(budget.run_charged) / Decimal(1_000_000_000))
