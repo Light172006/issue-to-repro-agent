@@ -20,6 +20,7 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["src", "."]
 markers = ["docker: requires a local Docker daemon", "network: requires access to an external service"]
 
 [tool.ruff.lint.per-file-ignores]

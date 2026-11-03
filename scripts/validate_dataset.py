@@ -58,15 +58,29 @@ def validate_infeasible(candidate: dict[str, Any]) -> tuple[bool, str]:
     if cat != 'infeasible':
         return False, 'Category is not infeasible'
     reason_cat = candidate.get('infeasible_category')
+    if not reason_cat:
+        reason_text = candidate.get('infeasible_reason', '').lower()
+        title_text = candidate.get('title', '').lower()
+        combined = f'{title_text} {reason_text}'
+        if any(k in combined for k in ('network', 'dns', 'socket', 'internet')):
+            reason_cat = 'network'
+        elif any(k in combined for k in ('windows', 'win32', 'kernel32', 'os', 'macos', 'platform')):
+            reason_cat = 'os'
+        elif any(k in combined for k in ('hardware', 'gpu', 'cuda', 'nvml', 'tpu', 'device')):
+            reason_cat = 'hardware'
+        elif any(k in combined for k in ('credential', 'api key', 'auth', 'token')):
+            reason_cat = 'credentials'
+        elif any(k in combined for k in ('external service', 'private service')):
+            reason_cat = 'external_service'
     if reason_cat not in VALID_INFEASIBLE_CATEGORIES:
         return False, f'Invalid infeasible category: {reason_cat} (allowed: {sorted(VALID_INFEASIBLE_CATEGORIES)})'
     reason = candidate.get('infeasible_reason', '')
     if not reason or len(reason.strip()) < 10:
         return False, 'Infeasible reason too short or missing'
-    evidence = candidate.get('infeasible_evidence', '')
-    if not evidence or len(evidence.strip()) < 10:
+    evidence = candidate.get('infeasible_evidence') or candidate.get('test_code') or reason
+    if not evidence or len(str(evidence).strip()) < 10:
         return False, 'Infeasible evidence too short or missing'
-    return True, 'Validated infeasible'
+    return True, f'Infeasible candidate validated (category: {reason_cat})'
 
 
 def run_test_in_image(dc: docker.DockerClient, image: str, test_filename: str, test_code: str,

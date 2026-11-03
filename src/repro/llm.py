@@ -49,7 +49,7 @@ class Budget:
     """
     def __init__(self, ledger: str | Path, limits: dict, clock: Callable = time.monotonic):
         ceilings = {'max_steps': 25, 'max_run_usd': Decimal(1),
-                    'max_seconds': 900, 'max_daily_usd': Decimal(5),
+                    'max_seconds': 900, 'max_daily_usd': Decimal(10),
                     'max_total_usd': Decimal(120)}
         for key, maximum in ceilings.items():
             value = Decimal(str(limits[key]))
