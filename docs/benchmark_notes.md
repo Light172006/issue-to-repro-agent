@@ -61,3 +61,39 @@ Evaluated on the 11 development split candidates across:
 
 ### 3. Triage Needs-Info Refusals (`marshmallow-3082`, `voluptuous-515`)
 - Both reports had missing minimal code or expected vs actual behavior in the issue text, correctly triggering the conservative triage clarification rule.
+
+---
+
+## Post-Tuning Benchmark Evaluation (Commit `9bc1e71`)
+
+General fixes applied:
+1. **Prompt Guidance**: "Assert the expected behavior the issue describes, not the exact message text of the buggy output; implement complete callable stubs when mocking."
+2. **Generalized OS Triage Rule**: Distinguished incidental OS/platform mentions in verification logs from actual OS requirements (`requires Windows`, `fails only on Windows`, `ansitowin32`, `win32console`).
+3. **Reinstatement of Baseline B**: Agent loop in sandbox, without multi-run verifier or AST minimizer.
+
+### Post-Tuning Summary Metrics (Development Split)
+
+| Arm | Total Issues | Correct | Correctness (%) | Precision (%) | Recall (%) | Total Spend ($) | Avg Spend / Issue ($) | Avg Duration (s) |
+|---|---|---|---|---|---|---|---|---|
+| **Full System** | 11 | 5 | **45.5%** (+18.2% vs pre) | **100.0%** (5/5) | **33.3%** (3/9) | $1.01 | $0.0919 | 48.5s |
+| **Baseline B** | 11 | 5 | **45.5%** (5/11) | **100.0%** (5/5) | **33.3%** (3/9) | $0.79 | $0.0717 | 54.7s |
+| **Baseline A** | 11 | 9 | **81.8%** (9/11) | **81.8%** (9/11) | **100.0%** (9/9) | $0.03 | $0.0026 | 7.6s |
+
+---
+
+### Side-by-Side Comparison: Pre-Tuning vs Post-Tuning (Full System)
+
+| Issue ID | Split | Category | Pre Run Status | Pre Correct? | Post Run Status | Post Correct? | Delta / Note |
+|---|---|---|---|---|---|---|---|
+| `colorama-89` | dev | infeasible | not_feasible | **YES** | not_feasible | **YES** | Maintained correct refusal (Windows console API) |
+| `validators-dns` | dev | infeasible | not_feasible | **YES** | not_feasible | **YES** | Maintained correct refusal (Network DNS lookup) |
+| `parse-267` | dev | feasible | reproduced | **YES** | reproduced | **YES** | Maintained exact symptom reproduction (Buggy: 1, Fix: 0) |
+| `parse-258` | dev | feasible | reproduced (fix fail) | NO | reproduced | **YES** | **IMPROVED**: Fixed-version pass (Buggy: 1, Fix: 0) |
+| `voluptuous-539` | dev | feasible | reproduced (fix fail) | NO | reproduced | **YES** | **IMPROVED**: Fixed-version pass (Buggy: 1, Fix: 0) |
+| `parse-275` | dev | feasible | not_feasible | NO | needs_info | NO | **IMPROVED**: Eliminated false negative OS refusal |
+| `more-itertools-1309`| dev | feasible | reproduced (fix fail) | NO | not_reproduced | NO | Avoided overfitted assertion failure at fix |
+| `marshmallow-3082`| dev | feasible | needs_info | NO | needs_info | NO | Maintained conservative clarification |
+| `voluptuous-515` | dev | feasible | needs_info | NO | needs_info | NO | Maintained conservative clarification |
+| `parse-250` | dev | feasible | not_reproduced | NO | not_reproduced | NO | Agent searched and gave up without invalid test |
+| `parse-272` | dev | feasible | not_reproduced | NO | not_reproduced | NO | Agent searched and gave up without invalid test |
+

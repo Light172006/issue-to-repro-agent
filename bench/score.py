@@ -399,7 +399,7 @@ def format_results_markdown(
     md.append('**Evaluation Ground Rules:**')
     md.append('- **Feasible Success:** Candidate test must FAIL at buggy commit (symptom match) and PASS cleanly at fix commit (exit code 0).')
     md.append('- **Infeasible Success:** Agent must declare `not_feasible` with matching OS/network/hardware refusal reason.')
-    md.append('- **Baseline B:** Skipped per hackathon cut list ("not run").\n')
+    md.append('- **Baseline B:** Agent loop in sandbox without independent verifier or AST minimizer.\n')
 
     md.append('## Summary Comparison\n')
     md.append('| Arm | Split | Total | Correct | Correctness (%) | Precision (%) | Recall (%) | Total Cost ($) | Avg Cost ($) | Avg Time (s) |')
@@ -408,7 +408,7 @@ def format_results_markdown(
     for arm in ['full', 'baseline_a', 'baseline_b']:
         for split in ['development', 'held_out']:
             m = results_by_arm_split.get(arm, {}).get(split, {})
-            if arm == 'baseline_b' or not m or m.get('total', 0) == 0:
+            if not m or m.get('total', 0) == 0:
                 md.append(f"| `{arm}` | {split} | 0 | 0 | *Not Run* | *Not Run* | *Not Run* | $0.00 | $0.0000 | 0.0s |")
             else:
                 correct = m['tp'] + m['tn']
