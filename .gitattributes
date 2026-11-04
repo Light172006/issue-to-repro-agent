@@ -1,0 +1,4 @@
+* text=auto
+bench/held_out.json text eol=lf
+bench/dataset.json text eol=lf
+bench/HELDOUT.sha256 text eol=lf
