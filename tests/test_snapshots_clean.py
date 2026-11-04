@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-import pytest
 
 _CURATOR_KEYS = {'curator', 'fix_ref', 'buggy_ref', 'infeasible_evidence', 'test_code', 'ground_truth'}
 
@@ -17,7 +16,7 @@ def test_all_snapshots_clean_of_curator_content():
         
         # Must conform to schema_version 2
         assert data.get('schema_version') == 2, f"{snap_path.name}: expected schema_version 2"
-        assert 'repo' in data and data['repo'], f"{snap_path.name}: missing repo"
+        assert data.get('repo'), f"{snap_path.name}: missing repo"
         assert isinstance(data.get('number'), int), f"{snap_path.name}: missing integer issue number"
         assert 'body' in data, f"{snap_path.name}: missing body"
         assert isinstance(data.get('comments'), list), f"{snap_path.name}: missing comments list"

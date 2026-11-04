@@ -347,6 +347,7 @@ def test_no_dataset_fix_fields_reach_agent_prompt():
     """Prove that no dataset field about the fix reaches any agent prompt."""
     import json
     from pathlib import Path
+
     from repro.parser import IssueRecord, Symptom
 
     dataset = json.loads(Path('bench/dataset.json').read_text(encoding='utf-8'))

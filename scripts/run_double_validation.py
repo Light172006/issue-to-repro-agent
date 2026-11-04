@@ -17,8 +17,9 @@ for line in Path('.env').read_text(encoding='utf-8-sig').splitlines():
         k, v = line.split('=', 1)
         os.environ.setdefault(k.strip(), v.strip('\'"'))
 
-from repro.envbuilder import EnvironmentBuilder
 from scripts.validate_dataset import validate_candidate
+
+from repro.envbuilder import EnvironmentBuilder
 
 
 def run_pass(pass_num, candidates, dc, hc, builder, runs_dir):

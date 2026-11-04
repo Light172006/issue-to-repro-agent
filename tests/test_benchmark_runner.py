@@ -6,8 +6,6 @@ from decimal import Decimal
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from bench.run import (
     extract_python_code,
     load_candidate_snapshot,
@@ -18,7 +16,8 @@ from bench.score import (
     evaluate_candidate_run,
     format_results_markdown,
 )
-from repro.llm import Budget, Reply
+
+from repro.llm import Reply
 
 
 def test_extract_python_code_markdown_block():
