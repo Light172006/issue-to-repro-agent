@@ -1,0 +1,158 @@
+{
+  "outcome": "candidate_found",
+  "repro_path": "/work/repro/test_repro.py",
+  "verdict": "exact",
+  "steps": 8,
+  "cost_usd": "0.03065",
+  "duration": 50.5,
+  "stalled": false,
+  "reason": null,
+  "escalation": {
+    "escalated": false,
+    "trigger": null,
+    "step": null,
+    "reason": null,
+    "wonder_steps": 0,
+    "wonder_cost": "0",
+    "spark_cost": "0.03065",
+    "solved_after_escalation": false,
+    "failed_reason": null
+  },
+  "status": "reproduced",
+  "confidence": "medium",
+  "checks": {
+    "symptom_match": "exact",
+    "repeated_runs": {
+      "consistent": true,
+      "runs": [
+        {
+          "exit_code": 1,
+          "timed_out": false,
+          "verdict": "exact",
+          "failure": [
+            "ValueError",
+            "ValueError: math domain error",
+            "number.py:metric"
+          ]
+        },
+        {
+          "exit_code": 1,
+          "timed_out": false,
+          "verdict": "exact",
+          "failure": [
+            "ValueError",
+            "ValueError: math domain error",
+            "number.py:metric"
+          ]
+        },
+        {
+          "exit_code": 1,
+          "timed_out": false,
+          "verdict": "exact",
+          "failure": [
+            "ValueError",
+            "ValueError: math domain error",
+            "number.py:metric"
+          ]
+        },
+        {
+          "exit_code": 1,
+          "timed_out": false,
+          "verdict": "exact",
+          "failure": [
+            "ValueError",
+            "ValueError: math domain error",
+            "number.py:metric"
+          ]
+        },
+        {
+          "exit_code": 1,
+          "timed_out": false,
+          "verdict": "exact",
+          "failure": [
+            "ValueError",
+            "ValueError: math domain error",
+            "number.py:metric"
+          ]
+        }
+      ]
+    },
+    "fixed_version": null
+  },
+  "verification": "completed",
+  "status_detail": "Independent verification passed",
+  "test_file": "test_repro.py",
+  "candidate_sha256": "b4307f9e333e119314aba7c9f1bec4a932596908346a085310014f15927d950f",
+  "minimization": {
+    "status": "minimized",
+    "original_lines": 3,
+    "final_lines": 3,
+    "runs": 15,
+    "duration_s": 13.8279999999977,
+    "final_verification": {
+      "status": "reproduced",
+      "confidence": "medium",
+      "verification": "completed",
+      "checks": {
+        "symptom_match": "exact",
+        "repeated_runs": {
+          "consistent": true,
+          "runs": [
+            {
+              "exit_code": 1,
+              "timed_out": false,
+              "verdict": "exact",
+              "failure": [
+                "ValueError",
+                "ValueError: math domain error",
+                "number.py:metric"
+              ]
+            },
+            {
+              "exit_code": 1,
+              "timed_out": false,
+              "verdict": "exact",
+              "failure": [
+                "ValueError",
+                "ValueError: math domain error",
+                "number.py:metric"
+              ]
+            },
+            {
+              "exit_code": 1,
+              "timed_out": false,
+              "verdict": "exact",
+              "failure": [
+                "ValueError",
+                "ValueError: math domain error",
+                "number.py:metric"
+              ]
+            },
+            {
+              "exit_code": 1,
+              "timed_out": false,
+              "verdict": "exact",
+              "failure": [
+                "ValueError",
+                "ValueError: math domain error",
+                "number.py:metric"
+              ]
+            },
+            {
+              "exit_code": 1,
+              "timed_out": false,
+              "verdict": "exact",
+              "failure": [
+                "ValueError",
+                "ValueError: math domain error",
+                "number.py:metric"
+              ]
+            }
+          ]
+        },
+        "fixed_version": null
+      },
+      "candidate_sha256": "b4307f9e333e119314aba7c9f1bec4a932596908346a085310014f15927d950f"
+    }
+  }
+}

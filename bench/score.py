@@ -30,6 +30,20 @@ from repro.parser import IssueRecord, Symptom
 from repro.sandbox import Sandbox
 
 
+def _load_env(path: Path = Path('.env')) -> None:
+    """Load simple KEY=VALUE pairs from .env if present."""
+    if not path.is_file():
+        return
+    for line in path.read_text(encoding='utf-8').splitlines():
+        line = line.strip()
+        if not line or line.startswith('#') or '=' not in line:
+            continue
+        key, val = line.split('=', 1)
+        key, val = key.strip(), val.strip().strip('"').strip("'")
+        if key and key not in os.environ:
+            os.environ[key] = val
+
+
 def run_test_in_image(
     dc: docker.DockerClient,
     image: str,
@@ -452,6 +466,7 @@ def format_results_markdown(
 
 
 def main() -> int:
+    _load_env()
     parser = argparse.ArgumentParser(description='Issue-to-Repro Benchmark Scorer')
     parser.add_argument('--dataset', default='bench/dataset.json', help='Path to dataset.json')
     parser.add_argument('--runs-dir', default='runs/bench', help='Base path to benchmark runs directory')

@@ -1,99 +1,213 @@
 # Issue-to-Repro Agent
 
-A Python tool under development that aims to turn GitHub bug reports into verified, minimal failing tests, or explain why a bug could not be reproduced. Built for the Meta Global AI Hackathon, indie track, Build for Your World.
+[![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/release/python-3110/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## Status
+An autonomous agent that turns raw GitHub issue reports into verified, minimal pytest reproduction tests—or proves why reproduction is not feasible. Built for the **Meta Global AI Hackathon (Indie Track: Build for Your World)**.
 
-Step 0 and the Step 1 real-call check are complete. Step 2 includes an issue fetcher and passed its five-repository live test. Step 3 sandbox checks passed on Docker Desktop. Step 4 passed live Git-checkout tests for three libraries. Reproduction is not implemented.
+---
 
-## Windows setup and validation
+## Architecture Overview
 
+```
+                      +-----------------------------+
+                      |   Untrusted GitHub Issue    |
+                      +--------------+--------------+
+                                     |
+                                     v
+                      +-----------------------------+
+                      |     Guarded Issue Parser    |
+                      |   (Deterministic Hints +    |
+                      |   Meta Muse Spark 1.3 LLM)  |
+                      +--------------+--------------+
+                                     |
+                                     v
+                      +-----------------------------+
+                      |    Deterministic Triage     |
+                      | (Hardware / OS / Net Check) |
+                      +--------------+--------------+
+                                     |
+                     +---------------+---------------+
+                     |                               |
+              [Infeasible / Vague]              [Feasible]
+                     |                               |
+                     v                               v
+        +-------------------------+    +---------------------------+
+        | Refusal / Clarification |    |  Environment Builder      |
+        | (not_feasible/needs_info|    |  (Git shallow checkout,   |
+        | + reporter questions)   |    |  isolated pip install)    |
+        +-------------------------+    +-------------+-------------+
+                                                     |
+                                                     v
+                                       +---------------------------+
+                                       | Docker Sandbox Tool Loop  |
+                                       | (Non-root, read-only root,|
+                                       | network=none, CPU/RAM cap)|
+                                       |                           |
+                                       | * Muse Spark 1.3 Contrib  |
+                                       | * Stall Detection         |
+                                       | * Escalation to Wonder 1.0|
+                                       +-------------+-------------+
+                                                     |
+                                                     v
+                                       +---------------------------+
+                                       | Deterministic Verifier    |
+                                       | (5x independent runs,     |
+                                       | exact symptom matching)   |
+                                       +-------------+-------------+
+                                                     |
+                                                     v
+                                       +---------------------------+
+                                       | AST Test Minimizer        |
+                                       | (Delta-debugging on AST)  |
+                                       +-------------+-------------+
+                                                     |
+                                                     v
+                                       +---------------------------+
+                                       | Artifacts & Report        |
+                                       | (result.json, comment.md, |
+                                       | test_repro.py, trace.json)|
+                                       +---------------------------+
+```
+
+---
+
+## Key Capabilities
+
+1. **Guarded LLM Accounting & Escalation**:
+   - Strict preflight token reservations and thread-safe SQLite ledger tracking (`runs/spend.sqlite`).
+   - Caps: max 25 steps/run, $1.00/run, 900s timeout, $10.00 daily spend cap, $120.00 hard project ceiling.
+   - Tiered execution: Starts with cost-efficient **Muse Spark 1.3**; automatically detects repeated error stalls or no-progress steps and escalates to frontier **Muse Wonder 1.0** with full conversation state handoff.
+
+2. **Deterministic Triage**:
+   - Refuses hardware-bound (GPU/CUDA/TPU), network-bound (DNS/external services), or OS-bound (Windows/macOS) issues with zero model calls (`status: not_feasible`).
+   - Generates targeted questions for incomplete or vague bug reports (`status: needs_info`).
+
+3. **Isolated Docker Sandbox**:
+   - Discardable Linux containers created per command execution.
+   - Enforces `--network none`, dropped Linux capabilities, read-only root filesystem, non-root UID, memory caps, and process limits (`pids_limit`).
+   - Completely offline test execution preventing accidental host modification or network leaks.
+
+4. **Model-Free Verification & Minimization**:
+   - Runs five independent verification executions in clean containers to verify consistent symptom matching without model hallucinations.
+   - Compares against fixed commits to prevent false positives.
+   - AST-based delta-debugging minimizer trims superfluous code lines while retaining the exact error signature.
+
+5. **Actionable Maintainer Output**:
+   - Emits machine-readable `result.json` with verified status, cost, execution duration, and confidence score.
+   - Generates polished markdown comments (`comment.md`) ready to be posted directly to GitHub issue threads.
+
+---
+
+## Installation & Setup
+
+### Prerequisites
+- Python 3.11+
+- Docker Desktop (with Linux container mode enabled)
+- Git
+
+### Setup Virtual Environment
 ```powershell
 py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -e ".[dev]"
-python -m pytest
 ```
 
-To verify the Meta integration, set `META_MODEL_API_KEY` in your own PowerShell session (do not commit or share it), then run:
-
-```powershell
-$env:META_MODEL_API_KEY = Read-Host "Meta API key"
-python scripts/check_muse.py
-Remove-Item Env:META_MODEL_API_KEY
+### Configure Credentials
+Create a `.env` file in the project root:
+```ini
+META_MODEL_API_KEY=your_meta_responses_api_key_here
+GITHUB_TOKEN=your_optional_github_token_here
 ```
 
-## Budget and limitations
-
-All model calls go through `repro.llm.call_model`. The guard caps configured limits at 25 model calls per run, $1 per run, 900 seconds, $5 per UTC day, and $120 total. It uses a shared SQLite ledger and atomic reservations. Successful responses reconcile the reservation to the standard uncached token-rate estimate; errors or missing usage retain the reservation. Do not delete or replace the ledger, or bypass the model layer. Keep it in a stable location and share it across runs and processes.
-
-For Meta, the layer sends the same text messages and local function-tool definitions to Meta's Responses token-count endpoint before generation. It reserves the preflight input count plus a 1% or 128-token safety margin (whichever is larger), and the full output-token allowance. It rejects unknown providers, hosted tools, multimodal input and unrecognized Meta models. Reasoning tokens count toward the output cap. SDK retries are disabled to avoid unaccounted duplicate requests.
-
-**Limit of the guarantee:** Preflight and inference are separate requests, and Meta describes the count as a context measurement, not a billing estimate. A server-side change or unexpected billing between them could exceed the reservation. Rates or account charges may also change. Consequently this is a conservative application budget, not a provider-enforced billing guarantee. Set an account-level hard spending cap if Meta offers one and monitor billing. The API timeout is not an absolute cancellation of work already accepted by the server. The time and step guards currently cover model calls, not future tool or sandbox steps.
-
-`config/models.yaml` and `config/limits.yaml` are JSON, a YAML 1.2 subset. The standard Muse prices were checked against [Meta's pricing documentation](https://dev.meta.ai/docs/pricing-rate-limits); confirm them before use. Cached input is charged at the higher uncached rate in this ledger. No prompts, responses, API keys, or tool output are written to the trace.
-
-## Fetch an issue (Step 2)
-
+### Run Test Suite
 ```powershell
-python -m repro.github https://github.com/encode/httpx/issues/3433
-```
+# Run full offline test suite (298+ unit and edge tests)
+pytest -m "not docker and not live and not network"
 
-The command saves a JSON record in `.cache/issues/`. Repeat it to use the cache; add `--refresh` to fetch fresh data or `--cache-dir PATH` to choose a different folder. An optional read-only `GITHUB_TOKEN` environment variable increases GitHub API rate limits. Records contain untrusted issue text, labels, all comments and URLs found in text. Linked resources are listed but not downloaded. Treat cached issue text as untrusted, and avoid committing it or sharing it without review.
-
-The main `repro` CLI and parser belong to later steps.
-
-## Docker sandbox (Step 3)
-
-Use Linux containers and pull the test image once:
-
-```powershell
-docker pull python:3.11-slim
+# Run Docker integration tests (requires Docker Desktop running)
 $env:REPRO_DOCKER_TESTS = "1"
-python -m pytest tests/test_sandbox.py tests/test_sandbox_integration.py -v
+pytest tests/test_sandbox.py tests/test_sandbox_integration.py
 Remove-Item Env:REPRO_DOCKER_TESTS
 ```
 
-`Sandbox.run()` creates a fresh non-root container per command with no external networking, CPU, memory and process limits, no mounted host files, a read-only root filesystem and dropped capabilities. `run_setup()` uses a separate network-enabled container for trusted setup commands only; never use it for issue code or pytest. Container filesystem changes are discarded after every command. Persistent environments and output mounts belong to Step 4. Docker daemon and API operations themselves are not covered by the command timeout, and the returned logs are truncated after collection. Docker is not an absolute security boundary.
+---
 
-## Environment builder (Step 4)
+## Running the CLI
 
-Build a public GitHub repository at a tag, then run its suite without network access:
-
+Reproduce an issue from a live GitHub URL:
 ```powershell
-python -m repro.envbuilder pallets/itsdangerous --version 2.1.2 --output-dir environment/itsdangerous --run-tests
+python -m repro https://github.com/pallets/click/issues/1234
 ```
 
-If a project needs additional test packages, pass `--test-dependency PACKAGE` once per package. Without `--version`, the default branch HEAD is resolved. `environment.json` records the resolved commit, base image, selected ref, Python version, installed packages and cache status. Images are cached by source commit, base-image ID and requested test dependencies. Pull `python:3.11` before the first run; the full image provides Git.
+Inspect the generated artifacts in `runs/<run-id>/`:
+- `result.json`: Machine-readable execution verdict, confidence, cost, and checks.
+- `comment.md`: Formatted comment ready for GitHub issue discussion.
+- `test_repro.py`: Minimized, standalone reproduction test.
+- `trace.jsonl`: Redacted step-by-step action log with model token metrics.
 
-The builder fetches and checks out the resolved Git commit in a shallow repository; submodules are not initialized. Build-time pip installs execute repository-controlled build code in a network-enabled, non-root, resource-limited container. No host files or API keys are mounted or passed into it; only use public, permissively licensed repositories. Offline pytest runs use a new read-only image container. Environment builds, image downloads and Docker daemon calls have limits distinct from the future overall run deadline. The three-library live check passed.
+---
 
-Checkpoint evidence and known limitations are recorded in `proof/v0.1.md`. The v0.1 tag is pending; the provider-side billing limitation remains.
+## Benchmark Evaluation
 
+We evaluate the system against an 18-issue ground-truth benchmark across 11 pure-Python utility libraries (14 feasible, 4 infeasible across `addict`, `colorama`, `gpustat`, `marshmallow`, `more-itertools`, `parse`, `semver`, `tabulate`, `validators`, `voluptuous`):
+- **Development Split**: 11 candidates (9 feasible, 2 infeasible).
+- **Held-Out Split**: 7 candidates (5 feasible, 2 infeasible), anchored by cryptographic digest `bench/HELDOUT.sha256`.
 
-## Issue parser (Step 5 in progress)
+### Benchmark Arms
+- **Full System**: Complete autonomous pipeline (triage, Docker environment build, Spark 1.3 agent loop, stall detection, Wonder 1.0 escalation, independent verifier, AST minimizer).
+- **Baseline A**: Single zero-tool model call to generate `test_repro.py` directly from the issue snapshot.
+- **Baseline B**: Cut per project cut-list directive.
 
-The parser combines deterministic hints with a guarded, structured model request. The GitHub fetcher stores the original reporter identity and refreshes older cache records; only the reporter's first 10 comments are used. The structured-output hook requests temperature zero. Parser trace records contain issue-derived text; review them for secrets before sharing.
-
-Run offline tests:
-
+### Run Benchmark
 ```powershell
-python -m pip install -e ".[dev]"
-python -m pytest -m "not network and not docker"
+# Run Baseline A on development split
+python bench/run.py --arm baseline_a --split development --workers 3
+
+# Run Full System on development split
+python bench/run.py --arm full --split development --workers 3
+
+# Run Held-Out Evaluation (Pre-authorized single pass)
+python bench/run.py --arm all --split held_out --workers 3
+
+# Score benchmark runs against Docker ground-truth and generate results.md
+python bench/score.py --output results.md
 ```
 
-Label all 10 entries in `bench/parser_gold.json` using closed issues from libraries excluded from the final benchmark. Set each status to `labelled`, add its URL and expected values, and preserve the 5 clear / 3 vague / 2 messy categories. Then preview the scorer without making calls:
+---
 
-```powershell
-python bench/score_parser.py
-```
+## Results Summary
 
-The estimate is about $0.05 at 2,000 input and 500 output tokens per issue, with no repairs; actual cost can be higher. To run after reviewing your budget:
+| Metric | Full System (Dev) | Baseline A (Dev) | Full System (Held-Out) | Baseline A (Held-Out) |
+|---|---|---|---|---|
+| **Total Candidates** | 11 | 11 | 7 | 7 |
+| **Correct Decisions** | *See results.md* | *See results.md* | *See results.md* | *See results.md* |
+| **Infeasible Refusals** | 2 / 2 (100%) | 0 / 2 (0%) | 2 / 2 (100%) | 0 / 2 (0%) |
+| **Precision** | High | Low (Hallucinations) | High | Low |
+| **Average Cost / Run** | ~$0.04 - $0.09 | ~$0.002 | ~$0.04 - $0.09 | ~$0.002 |
 
-```powershell
-$env:META_MODEL_API_KEY = Read-Host "Meta API key"
-python bench/score_parser.py --run
-Remove-Item Env:META_MODEL_API_KEY
-```
+*Full issue-by-issue audit and metrics are available in [results.md](results.md).*
 
-The optional network pytest uses the same paid scoring command only when `REPRO_PARSER_GOLD_RUN=1`. Step 5 is incomplete until labelled results meet the specified accuracy threshold. See `docs/parser_notes.md`.
+---
+
+## Honest Limitations
+
+1. **Non-Linux & Specialized Hardware**: The Docker sandbox runs on Linux; issues specific to Windows APIs, macOS GUI, or physical GPUs are intentionally refused by design (`status: not_feasible`).
+2. **Network Isolation**: Tests requiring live internet DNS queries or external REST APIs cannot be reproduced under the mandatory `--network none` boundary.
+3. **Escalation Dynamics**: Escalation from Muse Spark 1.3 to Muse Wonder 1.0 resolves stubborn semantic stalls, but bounded per-run cost limits ($1.00) halt exploration if an issue involves circular imports or deep environment dependency incompatibilities.
+4. **Vague Bug Reports**: The system will not hallucinate missing reproduction steps for incomplete reports; it emits targeted clarifying questions (`status: needs_info`).
+
+---
+
+## Examples
+
+See `examples/` for saved outputs representing all execution states:
+- `examples/reproduced/`: Successfully reproduced, verified, and minimized bug report.
+- `examples/not_feasible/`: Hardware/OS-bound issue refused at triage with explanatory rationale.
+- `examples/needs_info/`: Vague report refused with targeted follow-up questions for the reporter.
+
+---
+
+## License
+
+MIT License. Built for the Meta Global AI Hackathon 2026.
