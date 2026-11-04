@@ -341,3 +341,51 @@ def test_last_step_without_tool_reports_step_limit(tmp_path):
     assert result.reason == 'Step limit reached without a tool call'
     assert result.steps == 2
     assert toolbox.closed
+
+
+def test_no_dataset_fix_fields_reach_agent_prompt():
+    """Prove that no dataset field about the fix reaches any agent prompt."""
+    import json
+    from pathlib import Path
+    from repro.parser import IssueRecord, Symptom
+
+    dataset = json.loads(Path('bench/dataset.json').read_text(encoding='utf-8'))
+    assert len(dataset) == 18
+
+    for candidate in dataset:
+        sym_data = candidate.get('symptom', {})
+        record = IssueRecord(
+            repo=candidate['library'],
+            issue=candidate.get('issue_number', 1),
+            version=candidate.get('buggy_ref'),
+            symptom=Symptom(
+                kind=sym_data.get('kind', 'exception'),
+                type=sym_data.get('type'),
+                signature=sym_data.get('signature'),
+            ),
+            expected=candidate.get('expected_behavior'),
+            actual=candidate.get('actual_behavior'),
+            missing=[]
+        )
+
+        # 1. Agent Loop prompt payload
+        agent_payload = record.model_dump_json()
+
+        # 2. Baseline A prompt payload
+        title = candidate.get('title', '')
+        body = candidate.get('expected_behavior', '')
+        repo = candidate.get('library', '')
+        baseline_prompt = f"Repository: {repo}\nIssue Title: {title}\nIssue Description:\n{body}\n"
+
+        # Assert no fix fields exist in either prompt
+        fix_ref = candidate.get('fix_ref')
+        test_code = candidate.get('test_code')
+        test_file = candidate.get('test_file_path')
+
+        for text in (agent_payload, baseline_prompt):
+            if fix_ref:
+                assert fix_ref not in text, f"Fix ref {fix_ref} leaked in prompt for {candidate['id']}"
+            if test_code:
+                assert test_code not in text, f"Ground-truth test code leaked in prompt for {candidate['id']}"
+            if test_file:
+                assert test_file not in text, f"Fix test file path {test_file} leaked in prompt for {candidate['id']}"

@@ -67,3 +67,29 @@ def test_cli_stops_early_and_writes_draft(tmp_path, monkeypatch, body, missing, 
     assert json.loads(result_path.read_text())['status'] == expected
     assert (result_path.parent / 'comment.md').is_file()
     docker.assert_not_called()
+
+
+@pytest.mark.parametrize('body', [
+    'On Windows, CPython 3.13.15: 180 passed, 1 pre-existing skip.',
+    'Local verification on Windows was successful.',
+    'Tested on macOS and Linux with no errors.',
+    'Developed on Windows 11 using WSL2.',
+])
+def test_incidental_os_mention_does_not_trigger_not_feasible(body):
+    """An OS mentioned incidentally in verification notes must not trigger not_feasible."""
+    assert assess(issue(body), IssueRecord(repo='a/b', issue=1)) is None
+
+
+@pytest.mark.parametrize('body', [
+    'This bug only occurs on Windows.',
+    'Reproduction requires Windows host APIs.',
+    'Fails only under Windows console.',
+    'This issue is specific to Windows.',
+    'Requires Windows to reproduce.',
+])
+def test_true_os_blocker_triggers_not_feasible(body):
+    """An OS that truly blocks execution must trigger not_feasible."""
+    res = assess(issue(body), IssueRecord(repo='a/b', issue=1))
+    assert res is not None
+    assert res.status == 'not_feasible'
+    assert 'windows' in res.reason.lower()

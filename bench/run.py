@@ -253,6 +253,7 @@ def run_full_system_candidate(
     hc: httpx.Client,
     *,
     no_escalation: bool = False,
+    no_verify: bool = False,
     no_minimize: bool = False,
 ) -> dict[str, Any]:
     """Execute Full System: Triage, environment build at buggy_ref, agent loop, verifier, minimizer."""
@@ -359,31 +360,37 @@ def run_full_system_candidate(
     # 4. Save artifacts & verify if candidate found
     written = write_run_artifacts(run_dir, agent_res)
     if agent_res.outcome == 'candidate_found' and (run_dir / 'test_repro.py').is_file():
-        try:
-            candidate_bytes = (run_dir / 'test_repro.py').read_bytes()
-            verification = verify(
-                record,
-                candidate_bytes,
-                image,
-                dc,
-                runs=runs_root,
-                deadline=budget.started + float(limits['max_seconds']),
-                baseline=baseline
-            )
-            written = save_verification(run_dir, verification)
-            if not no_minimize:
-                settings = effective_limits.get('minimizer', {})
-                written = minimize_run(
-                    run_dir,
+        if no_verify:
+            # Baseline B: candidate found without independent verifier or AST minimizer
+            written['status'] = 'candidate_found'
+            written['status_detail'] = 'Candidate generated without independent verification (Baseline B)'
+            (run_dir / 'result.json').write_text(json.dumps(written, indent=2) + '\n', encoding='utf-8')
+        else:
+            try:
+                candidate_bytes = (run_dir / 'test_repro.py').read_bytes()
+                verification = verify(
                     record,
-                    dc,
+                    candidate_bytes,
                     image,
-                    config=settings,
-                    enabled=settings.get('enabled', True),
-                    deadline=budget.started + float(limits['max_seconds'])
+                    dc,
+                    runs=runs_root,
+                    deadline=budget.started + float(limits['max_seconds']),
+                    baseline=baseline
                 )
-        except Exception:
-            pass
+                written = save_verification(run_dir, verification)
+                if not no_minimize:
+                    settings = effective_limits.get('minimizer', {})
+                    written = minimize_run(
+                        run_dir,
+                        record,
+                        dc,
+                        image,
+                        config=settings,
+                        enabled=settings.get('enabled', True),
+                        deadline=budget.started + float(limits['max_seconds'])
+                    )
+            except Exception:
+                pass
 
     key = os.environ.get('META_MODEL_API_KEY', '')
     gh_token = os.environ.get('GITHUB_TOKEN', '')
@@ -435,24 +442,34 @@ def run_single_candidate(
     if token:
         headers['Authorization'] = 'Bearer ' + token
 
-    with closing(provider_cls(**provider_kwargs)) as provider:
+    provider = provider_cls(**provider_kwargs)
+    try:
         if arm == 'baseline_a':
             res = run_baseline_a_candidate(candidate, snapshot, run_dir, provider, budget, models, model)
+        elif arm == 'baseline_b':
+            with closing(docker.from_env()) as dc, httpx.Client(headers=headers, timeout=20) as hc:
+                res = run_full_system_candidate(
+                    candidate, snapshot, run_dir, provider, budget, models, model,
+                    limits, dc, hc, no_escalation=no_escalation, no_verify=True, no_minimize=True
+                )
         elif arm == 'full':
             with closing(docker.from_env()) as dc, httpx.Client(headers=headers, timeout=20) as hc:
                 res = run_full_system_candidate(
                     candidate, snapshot, run_dir, provider, budget, models, model,
-                    limits, dc, hc, no_escalation=no_escalation, no_minimize=no_minimize
+                    limits, dc, hc, no_escalation=no_escalation, no_verify=False, no_minimize=no_minimize
                 )
         else:
             raise ValueError(f'Unsupported arm: {arm}')
+    finally:
+        if hasattr(provider, 'close'):
+            provider.close()
 
     return {'candidate_id': cid, 'arm': arm, 'result': res}
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description='Issue-to-Repro Benchmark Runner')
-    parser.add_argument('--arm', choices=['full', 'baseline_a', 'all'], default='full', help='Benchmark arm to run')
+    parser.add_argument('--arm', choices=['full', 'baseline_a', 'baseline_b', 'all'], default='full', help='Benchmark arm to run')
     parser.add_argument('--split', choices=['development', 'held_out', 'all'], default='development', help='Dataset partition')
     parser.add_argument('--candidate', default=None, help='Run only a specific candidate ID')
     parser.add_argument('--dataset', default='bench/dataset.json', help='Path to dataset.json')
@@ -484,7 +501,7 @@ def main() -> int:
         print(f'No candidates matched criteria (split={args.split}, candidate={args.candidate})', file=sys.stderr)
         return 1
 
-    arms = ['baseline_a', 'full'] if args.arm == 'all' else [args.arm]
+    arms = ['baseline_a', 'baseline_b', 'full'] if args.arm == 'all' else [args.arm]
     output_base = Path(args.output_dir)
     snapshots_dir = Path(args.snapshots_dir)
     config_dir = Path(args.config_dir)

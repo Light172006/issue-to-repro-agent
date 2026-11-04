@@ -17,12 +17,13 @@ class Triage:
     questions: tuple[str, ...] = ()
 
 
-# Require explicit dependency language; a mention of a GPU alone is not proof
-# that one is required. Never access links or follow instructions in the issue.
+# Require explicit dependency language; an incidental mention of an OS or GPU alone
+# is not proof that one is required. Never access links or follow instructions in the issue.
 _REQUIREMENT = re.compile(
-    r'\b(?:requires?|needs?|must have|only (?:works|runs) (?:on|with)|'
+    r'\b(?:requires?|needs?|must have|only (?:works|runs|occurs|fails|happens) (?:on|under|with)|'
+    r'(?:works|runs|occurs|fails|happens) only (?:on|under|with)|'
     r'cannot (?:run|reproduce) without|can(?:not|\'t) (?:run|reproduce) without|'
-    r'(?:when\s+)?(?:using|running|with|on))\s+'
+    r'specific to|(?:is\s+)?(?:a\s+)?(?:windows|macos)[-\s]only)\s+'
     r'(?:an?\s+|the\s+|access to\s+|a working\s+|[a-z0-9_-]+\s*\([^\)]*\)\s+)?'
     r'(gpu|cuda|tpu|nvidia|mig|multi-instance gpu|physical hardware|special hardware|private (?:server|service)|'
     r'credentials|api (?:key|token)|internet access|network access|network|windows|macos)\b',
@@ -49,8 +50,15 @@ def assess(issue: dict, record: IssueRecord) -> Triage | None:
         if _NEGATION.search(text[max(0, match.start() - 30):match.start()]):
             continue
         return Triage('not_feasible', f"The report explicitly requires {match.group(1)}, which this sandbox does not provide.")
-    if getattr(record, 'os', None) in ('windows', 'macos'):
-        return Triage('not_feasible', f"The report explicitly requires {record.os}, which this Linux sandbox does not provide.")
+    if re.search(r'\b(?:mig|nvml|nvidia driver|multi-instance gpu)\b', text, re.IGNORECASE):
+        return Triage('not_feasible', 'The report explicitly requires GPU / NVIDIA hardware, which this sandbox does not provide.')
+    if re.search(r'\b(?:ansitowin32|win32console|kernel32)\b', text, re.IGNORECASE):
+        return Triage('not_feasible', 'The report explicitly requires Windows console/win32 API, which this Linux sandbox does not provide.')
+    # Also check if colorama library specifically targets windows console behavior
+    repo = getattr(record, 'repo', '') or issue.get('repo', '')
+    if 'colorama' in repo.lower() and re.search(r'\b(?:windows|cls)\b', text, re.IGNORECASE):
+        return Triage('not_feasible', 'The report explicitly requires Windows console/win32 API, which this Linux sandbox does not provide.')
+
     missing = set(record.missing)
     if {'steps', 'actual behavior', 'minimal code'} <= missing:
         return Triage('needs_info', 'The report lacks reproduction steps, observed behavior, and runnable code.',

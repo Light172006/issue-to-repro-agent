@@ -471,7 +471,7 @@ def main() -> int:
     parser.add_argument('--dataset', default='bench/dataset.json', help='Path to dataset.json')
     parser.add_argument('--runs-dir', default='runs/bench', help='Base path to benchmark runs directory')
     parser.add_argument('--split', choices=['development', 'held_out', 'all'], default='all', help='Split to evaluate')
-    parser.add_argument('--arms', nargs='+', default=['full', 'baseline_a'], help='Arms to evaluate')
+    parser.add_argument('--arms', nargs='+', default=['full', 'baseline_a', 'baseline_b'], help='Arms to evaluate')
     parser.add_argument('--output', default='results.md', help='Output Markdown report path')
     parser.add_argument('--output-json', default='runs/bench/benchmark_results.json', help='Output JSON summary path')
     parser.add_argument('--offline', action='store_true', help='Skip Docker sandbox re-runs (dry evaluation)')

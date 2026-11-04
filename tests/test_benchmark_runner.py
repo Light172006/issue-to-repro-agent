@@ -229,6 +229,41 @@ def test_format_results_markdown():
     assert "# Benchmark Evaluation Results" in md
     assert "72.7%" in md
     assert "85.7%" in md
-    assert "Baseline B" in md
-    assert "*Not Run*" in md
+
+
+def test_baseline_b_wiring(tmp_path: Path):
+    """Verify that arm='baseline_b' calls run_full_system_candidate with no_verify=True and no_minimize=True."""
+    from bench.run import run_single_candidate
+
+    cand = {
+        'id': 'test-cand',
+        'library': 'test/lib',
+        'buggy_ref': 'abc',
+        'category': 'feasible',
+        'split': 'development'
+    }
+    snap_dir = tmp_path / 'snaps'
+    snap_dir.mkdir()
+    (snap_dir / 'test-cand.json').write_text(json.dumps({'body': 'test'}), encoding='utf-8')
+    with patch('bench.run.load_candidate_snapshot', return_value={'body': 'test'}), \
+         patch('bench.run.run_full_system_candidate', return_value={'status': 'candidate_found'}) as mock_full, \
+         patch('bench.run.docker.from_env'), \
+         patch('bench.run.httpx.Client'):
+        res = run_single_candidate(
+            cand,
+            'baseline_b',
+            tmp_path / 'bench',
+            snap_dir,
+            Path('config'),
+            token=None,
+            api_key='',
+            no_escalation=True,
+            no_minimize=True,
+        )
+        assert res['arm'] == 'baseline_b'
+        mock_full.assert_called_once()
+        _, kwargs = mock_full.call_args
+        assert kwargs['no_verify'] is True
+        assert kwargs['no_minimize'] is True
+
 

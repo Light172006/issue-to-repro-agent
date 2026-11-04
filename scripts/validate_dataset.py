@@ -106,14 +106,17 @@ def run_test_in_image(dc: docker.DockerClient, image: str, test_filename: str, t
             (repro_dir / test_filename).unlink(missing_ok=True)
 
 
-def validate_candidate(candidate: dict[str, Any], dc: docker.DockerClient, hc: httpx.Client,
-                       builder: EnvironmentBuilder, runs_dir: Path) -> tuple[bool, dict[str, Any], str]:
+def validate_candidate(candidate: dict[str, Any], dc: docker.DockerClient | None, hc: httpx.Client,
+                       builder: EnvironmentBuilder | None, runs_dir: Path) -> tuple[bool, dict[str, Any], str]:
     cid = candidate['id']
     if candidate.get('category') == 'infeasible':
         ok, msg = validate_infeasible(candidate)
         if ok:
             return True, {'status': 'validated_infeasible', 'date': time.strftime('%Y-%m-%d')}, msg
         return False, {}, msg
+
+    if dc is None or builder is None:
+        return False, {}, 'Docker environment is required to validate feasible candidates'
 
     repo = candidate['library']
     buggy_ref = candidate['buggy_ref']
@@ -227,9 +230,9 @@ def main() -> int:
             return 1
     print(f'Loaded {len(candidates)} candidate(s) from {input_path}')
 
-    dc = docker.from_env()
+    dc: docker.DockerClient | None = None
+    builder: EnvironmentBuilder | None = None
     hc = httpx.Client(headers=headers, timeout=20)
-    builder = EnvironmentBuilder(dc, hc)
     runs_dir = Path('runs/validation')
     runs_dir.mkdir(parents=True, exist_ok=True)
 
@@ -240,6 +243,9 @@ def main() -> int:
         for c in candidates:
             cid = c.get('id', 'unknown')
             print(f'Validating candidate: {cid} ({c.get("library")} #{c.get("issue_number")})...')
+            if c.get('category') != 'infeasible' and dc is None:
+                dc = docker.from_env()
+                builder = EnvironmentBuilder(dc, hc)
             ok, val_meta, reason = validate_candidate(c, dc, hc, builder, runs_dir)
             if ok:
                 print(f'  [ACCEPTED] {cid}: {reason}')
@@ -251,7 +257,8 @@ def main() -> int:
                                  'reason': reason, 'date': time.strftime('%Y-%m-%d')})
     finally:
         hc.close()
-        dc.close()
+        if dc is not None:
+            dc.close()
 
     if not args.candidate:
         Path(args.output).write_text(json.dumps(accepted, indent=2) + '\n', encoding='utf-8')
