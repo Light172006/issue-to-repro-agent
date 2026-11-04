@@ -1,5 +1,26 @@
 # Benchmark Evaluation Notes & Tuning Journal
 
+## Dataset Integrity & Re-Anchoring Disclosure (Commit `502e292`)
+
+Prior to conducting any benchmark runs, commit `502e292` rebuilt `bench/dataset.json`, `bench/held_out.json`, and re-anchored `bench/HELDOUT.sha256` to `405b7c5efde9602f29852cb106ce6c73be5b5f6abca60bf8debd7893e74bb872`.
+
+### Why the Dataset Was Rebuilt:
+During double-validation and Docker build verification, 6 initial candidate issues were found to contain unverified synthetic commit SHAs or fail strict symptom contracts:
+1. `sqlparse-826`: Synthetic commit SHA returning `HTTP 422 No commit found on GitHub`.
+2. `tabulate-408`: Synthetic commit SHA returning `HTTP 422 No commit found on GitHub`.
+3. `marshmallow-2901`: Synthetic commit SHA not present on GitHub.
+4. `semver-460`: Non-existent commit SHA on python-semver repository.
+5. `voluptuous-451`: Synthetic commit SHA on voluptuous repository.
+6. `more-itertools-1342`: Observed exception type at buggy commit did not match reported symptom contract.
+
+In addition, `validators-dns` was missing the `infeasible_category` attribute in `dataset.json`.
+
+All 6 issues were purged to `bench/rejected.json` and replaced with 6 verified, real GitHub PRs: `addict-102`, `parse-250`, `parse-258`, `parse-275`, `semver-501`, and `voluptuous-539`. The dataset was partitioned using deterministic stratified seeded splitting (`seed=42`), allocating 11 candidates to development and 7 to held-out.
+
+**Confirmation:** Absolutely zero benchmark results existed at the time of commit `502e292`. Benchmarking evaluation only commenced at commit `a2c525c`.
+
+---
+
 ## Pre-Tuning Benchmark Evaluation (Commit `a974b539dba33a1e38a0d223be0d2312721497ad`)
 
 Evaluated on the 11 development split candidates across:
@@ -73,11 +94,16 @@ General fixes applied:
 
 ### Post-Tuning Summary Metrics (Development Split)
 
-| Arm | Total Issues | Correct | Correctness (%) | Precision (%) | Recall (%) | Total Spend ($) | Avg Spend / Issue ($) | Avg Duration (s) |
+> [!NOTE]
+> **Audit Correction on Tuning 1 Numbers & Baseline A 9/11:**
+> 1. **Baseline A 9/11**: The earlier report of 9/11 for Baseline A originated from an offline mock stub in `bench/score.py` lines 181-196 (`if dc is None or builder is None: is_correct = True`). Running `score.py --offline` caused all 9 feasible candidates to be falsely credited as correct. When live Docker sandbox verification was performed, Baseline A was verified to achieve only **3/11 (27.3%)** correct outcomes with **11 claims (3 correct / 8 wrong, 72.7% wrong-claim rate)**.
+> 2. **Tuning 1 Full System (4/11 vs 5/11)**: In Tuning 1, `parse-258` was initially given credit for finding a test, but subsequent fix-environment execution revealed it actually failed on fix because the AST minimizer halved `'03:00 pm'` to `'03:0'`. The true verified correct count in Tuning 1 was **4/11 (36.4%)**: 2 feasible correct (`parse-267`, `voluptuous-539`) and 2 infeasible refusals (`colorama-89`, `validators-dns`). The minimizer halving bug was resolved in Tuning Iteration 2.
+
+| Arm | Total Issues | Correct | Correctness (%) | Feasible Repro Rate | Claims (Tot/Corr/Wr) | Wrong-Claim Rate | Total Spend ($) | Avg Duration (s) |
 |---|---|---|---|---|---|---|---|---|
-| **Full System** | 11 | 5 | **45.5%** (+18.2% vs pre) | **100.0%** (5/5) | **33.3%** (3/9) | $1.01 | $0.0919 | 48.5s |
-| **Baseline B** | 11 | 5 | **45.5%** (5/11) | **100.0%** (5/5) | **33.3%** (3/9) | $0.79 | $0.0717 | 54.7s |
-| **Baseline A** | 11 | 9 | **81.8%** (9/11) | **81.8%** (9/11) | **100.0%** (9/9) | $0.03 | $0.0026 | 7.6s |
+| **Full System** | 11 | 4 | **36.4%** (4/11) | **22.2%** (2/9) | 3 (2 / 1) | **33.3%** | $1.01 | 48.5s |
+| **Baseline B** | 11 | 5 | **45.5%** (5/11) | **33.3%** (3/9) | 3 (3 / 0) | **0.0%** | $0.79 | 54.7s |
+| **Baseline A** | 11 | 3 | **27.3%** (3/11) | **33.3%** (3/9) | 11 (3 / 8) | **72.7%** | $0.03 | 7.6s |
 
 ---
 
@@ -88,8 +114,8 @@ General fixes applied:
 | `colorama-89` | dev | infeasible | not_feasible | **YES** | not_feasible | **YES** | Maintained correct refusal (Windows console API) |
 | `validators-dns` | dev | infeasible | not_feasible | **YES** | not_feasible | **YES** | Maintained correct refusal (Network DNS lookup) |
 | `parse-267` | dev | feasible | reproduced | **YES** | reproduced | **YES** | Maintained exact symptom reproduction (Buggy: 1, Fix: 0) |
-| `parse-258` | dev | feasible | reproduced (fix fail) | NO | reproduced | **YES** | **IMPROVED**: Fixed-version pass (Buggy: 1, Fix: 0) |
 | `voluptuous-539` | dev | feasible | reproduced (fix fail) | NO | reproduced | **YES** | **IMPROVED**: Fixed-version pass (Buggy: 1, Fix: 0) |
+| `parse-258` | dev | feasible | reproduced (fix fail) | NO | reproduced (fix fail) | NO | Failed on fix due to minimizer string halving (resolved in Iteration 2) |
 | `parse-275` | dev | feasible | not_feasible | NO | needs_info | NO | **IMPROVED**: Eliminated false negative OS refusal |
 | `more-itertools-1309`| dev | feasible | reproduced (fix fail) | NO | not_reproduced | NO | Avoided overfitted assertion failure at fix |
 | `marshmallow-3082`| dev | feasible | needs_info | NO | needs_info | NO | Maintained conservative clarification |

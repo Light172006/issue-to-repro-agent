@@ -1,0 +1,65 @@
+{
+  "manifest_version": "1.0.0",
+  "created_at": "2026-11-04T14:46:00+05:30",
+  "status": "frozen_pending_go_ahead",
+  "description": "Code and scorer freeze manifest for autonomous benchmark evaluation on held-out split.",
+  "code_hashes": {
+    "bench/score.py": "c293413f9805893aba2784e1c4d5b229075d574edf9707cab2a5d4ad630d5031",
+    "src/repro/matcher.py": "869094ac8c796e7a2ee69687ac7fc47c38a46517e0cd702ad8ea6f4b9238b46c",
+    "src/repro/agent.py": "c874eeb45d666719c5a042310108ff21085807c820d1117fc4e084f1aa445a15",
+    "src/repro/triage.py": "521f86091b5c91771788e2b89fd1f2749fdfc069e3467da63f144722a0f4620b",
+    "src/repro/minimizer.py": "d43ca9a21b059ef8d36962a6e94c3c9c23ccc4ec3937f3ba1e3659678a24de2f",
+    "bench/dataset.json": "da3783a5b3c438163d0ab1f26127b2e3f79f4236d48e2dcf0c41d208f7e27625",
+    "bench/held_out.json": "405b7c5efde9602f29852cb106ce6c73be5b5f6abca60bf8debd7893e74bb872"
+  },
+  "held_out_integrity": {
+    "anchored_hash": "405b7c5efde9602f29852cb106ce6c73be5b5f6abca60bf8debd7893e74bb872",
+    "anchor_file": "bench/HELDOUT.sha256",
+    "verified_match": true
+  },
+  "development_split_results": {
+    "full": {
+      "feasible_reproduction_rate": "55.6% (5/9)",
+      "fail_to_pass": "5/9",
+      "symptom_match": "5/9",
+      "claims_total": 5,
+      "claims_correct": 5,
+      "claims_wrong": 0,
+      "wrong_claim_rate": "0.0%",
+      "infeasible_refusal_quality": "100.0% (2/2)",
+      "overall_correctness": "63.6% (7/11)",
+      "total_spend_usd": "0.54"
+    },
+    "baseline_b": {
+      "feasible_reproduction_rate": "33.3% (3/9)",
+      "fail_to_pass": "3/9",
+      "symptom_match": "3/9",
+      "claims_total": 3,
+      "claims_correct": 3,
+      "claims_wrong": 0,
+      "wrong_claim_rate": "0.0%",
+      "infeasible_refusal_quality": "100.0% (2/2)",
+      "overall_correctness": "45.5% (5/11)",
+      "total_spend_usd": "0.79"
+    },
+    "baseline_a": {
+      "feasible_reproduction_rate": "33.3% (3/9)",
+      "fail_to_pass": "5/9",
+      "symptom_match": "5/9",
+      "claims_total": 11,
+      "claims_correct": 3,
+      "claims_wrong": 8,
+      "wrong_claim_rate": "72.7%",
+      "infeasible_refusal_quality": "0.0% (0/2)",
+      "overall_correctness": "27.3% (3/11)",
+      "total_spend_usd": "0.03"
+    }
+  },
+  "ground_rules": [
+    "No further modifications to src/ or bench/score.py permitted after code freeze.",
+    "Held-out benchmark will run exactly once per arm (full, baseline_b, baseline_a).",
+    "Zero reruns permitted for bad or unverified results; only genuine infrastructure/daemon crashes may be re-run and disclosed.",
+    "Zero model calls permitted during scoring or reporting.",
+    "Awaiting explicit user go-ahead before executing held-out benchmark."
+  ]
+}

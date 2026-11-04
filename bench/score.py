@@ -94,7 +94,9 @@ def evaluate_candidate_run(
             'split': candidate.get('split', 'development'),
             'category': cat,
             'status': 'not_run',
+            'is_claim': False,
             'is_correct': False,
+            'fail_to_pass': False,
             'verdict': 'not_run',
             'failure_category': 'not_run',
             'cost_usd': '0.00',
@@ -108,6 +110,7 @@ def evaluate_candidate_run(
     status = run_data.get('status', run_data.get('outcome', 'unknown'))
     cost_usd = run_data.get('cost_usd', '0.00')
     duration = float(run_data.get('duration', 0.0))
+    is_claim = status in ('candidate_found', 'reproduced')
 
     # Case 1: Infeasible issue
     if is_infeasible:
@@ -122,7 +125,9 @@ def evaluate_candidate_run(
                     'split': candidate.get('split', 'development'),
                     'category': cat,
                     'status': status,
+                    'is_claim': False,
                     'is_correct': True,
+                    'fail_to_pass': False,
                     'verdict': 'correct_refusal',
                     'failure_category': None,
                     'cost_usd': cost_usd,
@@ -136,7 +141,9 @@ def evaluate_candidate_run(
                 'split': candidate.get('split', 'development'),
                 'category': cat,
                 'status': status,
+                'is_claim': False,
                 'is_correct': False,
+                'fail_to_pass': False,
                 'verdict': 'incorrect',
                 'failure_category': 'infeasible_category_mismatch',
                 'cost_usd': cost_usd,
@@ -150,9 +157,11 @@ def evaluate_candidate_run(
             'split': candidate.get('split', 'development'),
             'category': cat,
             'status': status,
+            'is_claim': is_claim,
             'is_correct': False,
+            'fail_to_pass': False,
             'verdict': 'incorrect',
-            'failure_category': 'false_positive_attempt' if status in ('candidate_found', 'reproduced') else status,
+            'failure_category': 'false_positive_attempt' if is_claim else status,
             'cost_usd': cost_usd,
             'duration': duration,
             'buggy_exit': None,
@@ -161,13 +170,15 @@ def evaluate_candidate_run(
         }
 
     # Case 2: Feasible issue
-    if status not in ('candidate_found', 'reproduced') or not test_file.is_file():
+    if not is_claim or not test_file.is_file():
         return {
             'candidate_id': cid,
             'split': candidate.get('split', 'development'),
             'category': cat,
             'status': status,
+            'is_claim': False,
             'is_correct': False,
+            'fail_to_pass': False,
             'verdict': 'incorrect',
             'failure_category': 'false_negative_refusal' if status == 'not_feasible' else status,
             'cost_usd': cost_usd,
@@ -185,7 +196,9 @@ def evaluate_candidate_run(
             'split': candidate.get('split', 'development'),
             'category': cat,
             'status': status,
+            'is_claim': True,
             'is_correct': False,
+            'fail_to_pass': False,
             'verdict': 'unevaluated',
             'failure_category': 'offline_unevaluated',
             'cost_usd': cost_usd,
@@ -217,7 +230,9 @@ def evaluate_candidate_run(
             'split': candidate.get('split', 'development'),
             'category': cat,
             'status': status,
+            'is_claim': True,
             'is_correct': False,
+            'fail_to_pass': False,
             'verdict': 'incorrect',
             'failure_category': f'buggy_exec_error: {type(exc).__name__}',
             'cost_usd': cost_usd,
@@ -233,7 +248,9 @@ def evaluate_candidate_run(
             'split': candidate.get('split', 'development'),
             'category': cat,
             'status': status,
+            'is_claim': True,
             'is_correct': False,
+            'fail_to_pass': False,
             'verdict': 'incorrect',
             'failure_category': 'passed_at_buggy',
             'cost_usd': cost_usd,
@@ -259,73 +276,51 @@ def evaluate_candidate_run(
     )
     checker = DeterministicSymptomChecker(baseline=buggy_baseline)
     match = checker.check(record, b_out)
-    if match.verdict == 'none':
-        return {
-            'candidate_id': cid,
-            'split': candidate.get('split', 'development'),
-            'category': cat,
-            'status': status,
-            'is_correct': False,
-            'verdict': 'incorrect',
-            'failure_category': 'symptom_mismatch',
-            'cost_usd': cost_usd,
-            'duration': duration,
-            'buggy_exit': b_code,
-            'fix_exit': None,
-            'symptom_match': match.verdict
-        }
+    symptom_match = match.verdict
 
-    # Run in Sandbox: Fix environment
-    try:
-        fix_meta = builder.build(repo, fix_ref, runs_dir / f'{cid}_fix', timeout=300)
-        fix_image = fix_meta['image']
-        f_code, f_out = run_test_in_image(dc, fix_image, test_code, timeout=60, run_id=f'{cid}_f')
-    except Exception as exc:
-        return {
-            'candidate_id': cid,
-            'split': candidate.get('split', 'development'),
-            'category': cat,
-            'status': status,
-            'is_correct': False,
-            'verdict': 'incorrect',
-            'failure_category': f'fix_exec_error: {type(exc).__name__}',
-            'cost_usd': cost_usd,
-            'duration': duration,
-            'buggy_exit': b_code,
-            'fix_exit': None,
-            'symptom_match': match.verdict
-        }
+    # Run in Sandbox: Fix environment (ALWAYS when b_code == 1, for matcher-independent fail-to-pass!)
+    f_code = None
+    f_out = None
+    if b_code == 1:
+        try:
+            fix_meta = builder.build(repo, fix_ref, runs_dir / f'{cid}_fix', timeout=300)
+            fix_image = fix_meta['image']
+            f_code, f_out = run_test_in_image(dc, fix_image, test_code, timeout=60, run_id=f'{cid}_f')
+        except Exception as exc:
+            f_code = -1
 
-    if f_code != 0:
-        return {
-            'candidate_id': cid,
-            'split': candidate.get('split', 'development'),
-            'category': cat,
-            'status': status,
-            'is_correct': False,
-            'verdict': 'incorrect',
-            'failure_category': 'failed_at_fix',
-            'cost_usd': cost_usd,
-            'duration': duration,
-            'buggy_exit': b_code,
-            'fix_exit': f_code,
-            'symptom_match': match.verdict
-        }
+    fail_to_pass = (b_code == 1 and f_code == 0)
+    has_symptom_match = (symptom_match in ('exact', 'partial'))
+    is_correct = (fail_to_pass and has_symptom_match)
 
-    # Success: Failed at buggy with symptom match, and passed at fix!
+    if is_correct:
+        verdict = 'correct_repro'
+        failure_category = None
+    elif not has_symptom_match:
+        verdict = 'incorrect'
+        failure_category = 'symptom_mismatch'
+    elif f_code != 0:
+        verdict = 'incorrect'
+        failure_category = 'failed_at_fix'
+    else:
+        verdict = 'incorrect'
+        failure_category = f'execution_failure (b={b_code}, f={f_code})'
+
     eval_res = {
         'candidate_id': cid,
         'split': candidate.get('split', 'development'),
         'category': cat,
         'status': status,
-        'is_correct': True,
-        'verdict': 'correct_repro',
-        'failure_category': None,
+        'is_claim': True,
+        'is_correct': is_correct,
+        'fail_to_pass': fail_to_pass,
+        'verdict': verdict,
+        'failure_category': failure_category,
         'cost_usd': cost_usd,
         'duration': duration,
         'buggy_exit': b_code,
         'fix_exit': f_code,
-        'symptom_match': match.verdict
+        'symptom_match': symptom_match
     }
     if eval_cache is not None:
         eval_cache[cache_key] = eval_res
@@ -340,12 +335,17 @@ def calculate_metrics(eval_records: list[dict[str, Any]]) -> dict[str, Any]:
             'total': 0, 'feasible': 0, 'infeasible': 0,
             'tp': 0, 'tn': 0, 'fp': 0, 'fn': 0,
             'correctness': 0.0, 'precision': 0.0, 'recall': 0.0,
+            'reproduction_rate': 0.0, 'refusal_quality': 0.0,
+            'claims': 0, 'correct_claims': 0, 'wrong_claims': 0, 'wrong_claim_rate': 0.0,
+            'fail_to_pass_count': 0, 'symptom_match_count': 0,
             'total_cost': '0.00', 'avg_cost': '0.00',
             'total_duration': 0.0, 'avg_duration': 0.0
         }
 
     feasible_records = [r for r in eval_records if r['category'] == 'feasible']
     infeasible_records = [r for r in eval_records if r['category'] == 'infeasible']
+    feasible_count = len(feasible_records)
+    infeasible_count = len(infeasible_records)
 
     tp = sum(1 for r in feasible_records if r['is_correct'])
     fn = sum(1 for r in feasible_records if not r['is_correct'])
@@ -356,11 +356,28 @@ def calculate_metrics(eval_records: list[dict[str, Any]]) -> dict[str, Any]:
     correct = tp + tn
     correctness = (correct / total) * 100.0
 
-    # Precision = TP / (TP + FP) where FP includes infeasible attempts + feasible invalid repros
+    # Claims: runs with status reproduced or candidate_found
+    claims_records = [r for r in eval_records if r.get('is_claim') or r.get('status') in ('reproduced', 'candidate_found')]
+    claims = len(claims_records)
+    correct_claims = sum(1 for r in claims_records if r['is_correct'])
+    wrong_claims = claims - correct_claims
+    wrong_claim_rate = (wrong_claims / claims * 100.0) if claims > 0 else 0.0
+
+    # Feasible reproduction rate: correct feasible / feasible
+    reproduction_rate = (tp / feasible_count * 100.0) if feasible_count > 0 else 0.0
+
+    # Infeasible refusal quality: correct refusals / infeasible
+    refusal_quality = (tn / infeasible_count * 100.0) if infeasible_count > 0 else 0.0
+
+    # Fail-to-pass count (fails at buggy with exit 1, passes at fix with exit 0)
+    fail_to_pass_count = sum(1 for r in feasible_records if r.get('fail_to_pass'))
+
+    # Symptom-match count
+    symptom_match_count = sum(1 for r in feasible_records if r.get('symptom_match') in ('exact', 'partial'))
+
+    # Standard precision / recall
     denom_prec = tp + fp
     precision = (tp / denom_prec * 100.0) if denom_prec > 0 else 0.0
-
-    # Recall = TP / (TP + FN)
     denom_rec = tp + fn
     recall = (tp / denom_rec * 100.0) if denom_rec > 0 else 0.0
 
@@ -372,8 +389,8 @@ def calculate_metrics(eval_records: list[dict[str, Any]]) -> dict[str, Any]:
 
     return {
         'total': total,
-        'feasible': len(feasible_records),
-        'infeasible': len(infeasible_records),
+        'feasible': feasible_count,
+        'infeasible': infeasible_count,
         'tp': tp,
         'tn': tn,
         'fp': fp,
@@ -381,6 +398,14 @@ def calculate_metrics(eval_records: list[dict[str, Any]]) -> dict[str, Any]:
         'correctness': correctness,
         'precision': precision,
         'recall': recall,
+        'reproduction_rate': reproduction_rate,
+        'refusal_quality': refusal_quality,
+        'claims': claims,
+        'correct_claims': correct_claims,
+        'wrong_claims': wrong_claims,
+        'wrong_claim_rate': wrong_claim_rate,
+        'fail_to_pass_count': fail_to_pass_count,
+        'symptom_match_count': symptom_match_count,
         'total_cost': f"{total_cost:.2f}",
         'avg_cost': f"{avg_cost:.4f}",
         'total_duration': total_dur,
@@ -396,31 +421,52 @@ def format_results_markdown(
     md = []
     md.append('# Benchmark Evaluation Results\n')
     md.append('Autonomous issue reproduction benchmark evaluated across pure-Python utility libraries.\n')
-    md.append('**Evaluation Ground Rules:**')
-    md.append('- **Feasible Success:** Candidate test must FAIL at buggy commit (symptom match) and PASS cleanly at fix commit (exit code 0).')
+    md.append('**Evaluation Ground Rules & Metric Definitions:**')
+    md.append('- **Feasible Success:** Candidate test must FAIL at buggy commit (exit 1, symptom match) and PASS cleanly at fix commit (exit 0).')
     md.append('- **Infeasible Success:** Agent must declare `not_feasible` with matching OS/network/hardware refusal reason.')
-    md.append('- **Baseline B:** Agent loop in sandbox without independent verifier or AST minimizer.\n')
+    md.append('- **Reproduction Rate:** Correct feasible reproductions / total feasible issues.')
+    md.append('- **Fail-to-Pass:** Strict, matcher-independent count of tests that exit 1 at buggy and exit 0 at fix.')
+    md.append('- **Symptom Match:** Count of candidate tests matching reported symptom signature at buggy commit.')
+    md.append('- **Claims (Tot / Corr / Wr):** Total claims with status `reproduced` or `candidate_found` (correct claims / wrong claims).')
+    md.append('- **Wrong-Claim Rate:** Wrong claims / all claims (lower is better; 0.0% is zero false positives).')
+    md.append('- **Infeasible Refusal:** Correct refusals / total infeasible issues.')
+    md.append('- **Overall Correctness:** All correct outcomes (reproductions + refusals) / total issues.\n')
 
     md.append('## Summary Comparison\n')
-    md.append('| Arm | Split | Total | Correct | Correctness (%) | Precision (%) | Recall (%) | Total Cost ($) | Avg Cost ($) | Avg Time (s) |')
-    md.append('|---|---|---|---|---|---|---|---|---|---|')
+    md.append('| Arm | Split | Feasible Repro Rate | Fail-to-Pass | Symptom Match | Claims (Tot / Corr / Wr) | Wrong-Claim Rate | Infeasible Refusal | Overall Correctness | Total Cost ($) | Avg Time (s) |')
+    md.append('|---|---|---|---|---|---|---|---|---|---|---|')
 
-    for arm in ['full', 'baseline_a', 'baseline_b']:
+    for arm in ['full', 'baseline_b', 'baseline_a']:
         for split in ['development', 'held_out']:
             m = results_by_arm_split.get(arm, {}).get(split, {})
             if not m or m.get('total', 0) == 0:
-                md.append(f"| `{arm}` | {split} | 0 | 0 | *Not Run* | *Not Run* | *Not Run* | $0.00 | $0.0000 | 0.0s |")
+                md.append(f"| `{arm}` | {split} | *Not Run* | *Not Run* | *Not Run* | 0 (0 / 0) | *Not Run* | *Not Run* | *Not Run* | $0.00 | 0.0s |")
             else:
-                correct = m['tp'] + m['tn']
+                feas = m.get('feasible', m.get('tp', 0) + m.get('fn', 0))
+                infeas = m.get('infeasible', m.get('tn', 0) + m.get('fp', 0))
+                tot = m.get('total', feas + infeas)
+                corr = m.get('tp', 0) + m.get('tn', 0)
+                repro_rate = m.get('reproduction_rate', (m.get('tp', 0) / feas * 100.0) if feas > 0 else 0.0)
+                repro_str = f"**{repro_rate:.1f}%** ({m.get('tp', 0)}/{feas})"
+                f2p_str = f"{m.get('fail_to_pass_count', m.get('tp', 0))}/{feas}"
+                sym_str = f"{m.get('symptom_match_count', m.get('tp', 0))}/{feas}"
+                claims_tot = m.get('claims', m.get('tp', 0) + m.get('fp', 0))
+                claims_corr = m.get('correct_claims', m.get('tp', 0))
+                claims_wr = m.get('wrong_claims', claims_tot - claims_corr)
+                claims_str = f"{claims_tot} ({claims_corr} / {claims_wr})"
+                wcr = m.get('wrong_claim_rate', (claims_wr / claims_tot * 100.0) if claims_tot > 0 else 0.0)
+                wcr_str = f"{wcr:.1f}%"
+                ref_qual = m.get('refusal_quality', (m.get('tn', 0) / infeas * 100.0) if infeas > 0 else 0.0)
+                ref_str = f"{ref_qual:.1f}% ({m.get('tn', 0)}/{infeas})"
+                corr_pct = m.get('correctness', (corr / tot * 100.0) if tot > 0 else 0.0)
+                corr_str = f"**{corr_pct:.1f}%** ({corr}/{tot})"
                 md.append(
-                    f"| `{arm}` | {split} | {m['total']} | {correct}/{m['total']} | "
-                    f"**{m['correctness']:.1f}%** | {m['precision']:.1f}% | {m['recall']:.1f}% | "
-                    f"${m['total_cost']} | ${m['avg_cost']} | {m['avg_duration']:.1f}s |"
+                    f"| `{arm}` | {split} | {repro_str} | {f2p_str} | {sym_str} | {claims_str} | {wcr_str} | {ref_str} | {corr_str} | ${m.get('total_cost', '0.00')} | {m.get('avg_duration', 0.0):.1f}s |"
                 )
 
     md.append('\n## Failure Taxonomy\n')
-    md.append('| Failure Category | Full System (Dev) | Full System (Held-Out) | Baseline A (Dev) | Baseline A (Held-Out) | Description |')
-    md.append('|---|---|---|---|---|---|')
+    md.append('| Failure Category | Full System (Dev) | Full System (Held-Out) | Baseline B (Dev) | Baseline B (Held-Out) | Baseline A (Dev) | Baseline A (Held-Out) | Description |')
+    md.append('|---|---|---|---|---|---|---|---|')
 
     tax_categories = [
         ('passed_at_buggy', 'Test trivially passed at buggy commit; failed to reproduce bug'),
@@ -440,13 +486,15 @@ def format_results_markdown(
             )
         c_full_dev = count_cat('full', 'development')
         c_full_held = count_cat('full', 'held_out')
-        c_base_dev = count_cat('baseline_a', 'development')
-        c_base_held = count_cat('baseline_a', 'held_out')
-        md.append(f"| `{cat_key}` | {c_full_dev} | {c_full_held} | {c_base_dev} | {c_base_held} | {desc} |")
+        c_base_b_dev = count_cat('baseline_b', 'development')
+        c_base_b_held = count_cat('baseline_b', 'held_out')
+        c_base_a_dev = count_cat('baseline_a', 'development')
+        c_base_a_held = count_cat('baseline_a', 'held_out')
+        md.append(f"| `{cat_key}` | {c_full_dev} | {c_full_held} | {c_base_b_dev} | {c_base_b_held} | {c_base_a_dev} | {c_base_a_held} | {desc} |")
 
     md.append('\n## Detailed Issue-by-Issue Audit\n')
-    md.append('| Issue ID | Arm | Split | Category | Run Status | Buggy Exit | Fix Exit | Symptom Match | Correct? | Cost USD | Time (s) |')
-    md.append('|---|---|---|---|---|---|---|---|---|---|---|')
+    md.append('| Issue ID | Arm | Split | Category | Run Status | Buggy Exit | Fix Exit | Fail to Pass | Symptom Match | Correct? | Cost USD | Time (s) |')
+    md.append('|---|---|---|---|---|---|---|---|---|---|---|---|')
 
     for r in sorted(all_eval_records, key=lambda x: (x.get('arm', ''), x.get('candidate_id', ''))):
         cid = r['candidate_id']
@@ -456,11 +504,12 @@ def format_results_markdown(
         status = r.get('status', 'unknown')
         b_exit = '-' if r.get('buggy_exit') is None else str(r['buggy_exit'])
         f_exit = '-' if r.get('fix_exit') is None else str(r['fix_exit'])
+        f2p = 'YES' if r.get('fail_to_pass') else ('NO' if cat == 'feasible' and r.get('buggy_exit') is not None else '-')
         sym = '-' if r.get('symptom_match') is None else str(r['symptom_match'])
         corr = '**YES**' if r.get('is_correct') else 'NO'
         cost = r.get('cost_usd', '0.00')
         dur = r.get('duration', 0.0)
-        md.append(f"| `{cid}` | `{arm}` | {split} | {cat} | {status} | {b_exit} | {f_exit} | {sym} | {corr} | ${cost} | {dur:.1f}s |")
+        md.append(f"| `{cid}` | `{arm}` | {split} | {cat} | {status} | {b_exit} | {f_exit} | {f2p} | {sym} | {corr} | ${cost} | {dur:.1f}s |")
 
     return '\n'.join(md) + '\n'
 

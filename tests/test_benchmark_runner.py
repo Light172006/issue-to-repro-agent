@@ -205,6 +205,38 @@ def test_calculate_metrics_comprehensive():
     assert m["avg_cost"] == "0.1300"
     assert m["total_duration"] == 65.0
     assert m["avg_duration"] == 13.0
+    assert m["reproduction_rate"] == (2 / 3) * 100.0
+    assert m["refusal_quality"] == (1 / 2) * 100.0
+
+
+def test_baseline_a_metrics_rule():
+    # Exactly matching the development distribution of Baseline A:
+    # 9 feasible, 2 infeasible = 11 total.
+    # Baseline A emits candidate_found for all 11:
+    # 3 feasible correct, 6 feasible wrong, 2 infeasible wrong attempts.
+    records = []
+    # 3 correct feasible
+    for _ in range(3):
+        records.append({"category": "feasible", "status": "candidate_found", "is_claim": True, "is_correct": True, "fail_to_pass": True, "symptom_match": "partial"})
+    # 6 wrong feasible
+    for _ in range(6):
+        records.append({"category": "feasible", "status": "candidate_found", "is_claim": True, "is_correct": False, "fail_to_pass": False, "symptom_match": "none"})
+    # 2 wrong infeasible (attempted candidates)
+    for _ in range(2):
+        records.append({"category": "infeasible", "status": "candidate_found", "is_claim": True, "is_correct": False, "fail_to_pass": False, "symptom_match": None})
+
+    m = calculate_metrics(records)
+    assert m["total"] == 11
+    assert m["feasible"] == 9
+    assert m["infeasible"] == 2
+    assert m["claims"] == 11
+    assert m["correct_claims"] == 3
+    assert m["wrong_claims"] == 8
+    assert abs(m["wrong_claim_rate"] - (8 / 11 * 100.0)) < 1e-4
+    assert abs(m["reproduction_rate"] - (3 / 9 * 100.0)) < 1e-4
+    assert m["refusal_quality"] == 0.0
+    assert m["fail_to_pass_count"] == 3
+    assert m["symptom_match_count"] == 3
 
 
 def test_format_results_markdown():

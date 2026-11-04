@@ -122,7 +122,7 @@ GITHUB_TOKEN=your_optional_github_token_here
 
 ### Run Test Suite
 ```powershell
-# Run full offline test suite (298+ unit and edge tests)
+# Run full offline test suite (315+ unit and edge tests)
 pytest -m "not docker and not live and not network"
 
 # Run Docker integration tests (requires Docker Desktop running)
@@ -156,8 +156,8 @@ We evaluate the system against an 18-issue ground-truth benchmark across 11 pure
 
 ### Benchmark Arms
 - **Full System**: Complete autonomous pipeline (triage, Docker environment build, Spark 1.3 agent loop, stall detection, Wonder 1.0 escalation, independent verifier, AST minimizer).
+- **Baseline B**: Agent tool loop in Docker sandbox without independent verifier or AST minimizer.
 - **Baseline A**: Single zero-tool model call to generate `test_repro.py` directly from the issue snapshot.
-- **Baseline B**: Cut per project cut-list directive.
 
 ### Run Benchmark
 ```powershell

@@ -23,24 +23,24 @@ This dataset serves as the standardized, held-out evaluation benchmark for the I
 
 | ID | Library | Issue | Category | Symptom Kind | Expected / Reported Symptom | Split |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| `addict-102` | `mewwts/addict` | [#102](https://github.com/mewwts/addict/pull/102) | Feasible | Exception | `AssertionError: assert isinstance(Dict, CustomDict)` | Held-Out |
 | `addict-28` | `mewwts/addict` | [#28](https://github.com/mewwts/addict/issues/28) | Feasible | Exception | `AssertionError: assert {(0, 1): (1, 2)} == {0: 1, 1: 2, 2: 3}` | Held-Out |
-| `colorama-89` | `tartley/colorama` | [#89](https://github.com/tartley/colorama/issues/89) | Infeasible | Exception | `OSError: [WinError 87] The parameter is incorrect` (Win32 console buffer) | Development |
 | `colorama-110` | `tartley/colorama` | [#110](https://github.com/tartley/colorama/issues/110) | Infeasible | Exception | `OSError: [WinError 6] The handle is invalid` (Win32 kernel32 Console API) | Held-Out |
+| `colorama-89` | `tartley/colorama` | [#89](https://github.com/tartley/colorama/issues/89) | Infeasible | Exception | `OSError: [WinError 87] The parameter is incorrect` (Win32 console buffer) | Development |
 | `gpustat-cuda` | `wookayin/gpustat` | [#102](https://github.com/wookayin/gpustat/issues/102) | Infeasible | Exception | `NVMLError: NVML Shared Library Not Found` (NVIDIA NVML hardware driver) | Held-Out |
-| `marshmallow-2901` | `marshmallow-code/marshmallow` | [#2901](https://github.com/marshmallow-code/marshmallow/issues/2901) | Feasible | Exception | `AttributeError: 'NoneType' object has no attribute 'match'` | Held-Out |
-| `marshmallow-3082` | `marshmallow-code/marshmallow` | [#3082](https://github.com/marshmallow-code/marshmallow/issues/3082) | Feasible | Exception | `ValidationError: {'child': {'value': ['Unknown field.']}}` | Held-Out |
-| `more-itertools-1309` | `more-itertools/more-itertools` | [#1309](https://github.com/more-itertools/more-itertools/issues/1309) | Feasible | Exception | `AssertionError: assert [[]] == []` | Held-Out |
-| `more-itertools-1342` | `more-itertools/more-itertools` | [#1342](https://github.com/more-itertools/more-itertools/issues/1342) | Feasible | Exception | `TypeError: predicate must return boolean` | Development |
+| `marshmallow-3082` | `marshmallow-code/marshmallow` | [#3082](https://github.com/marshmallow-code/marshmallow/issues/3082) | Feasible | Exception | `ValidationError: {'child': {'value': ['Unknown field.']}}` | Development |
+| `more-itertools-1309` | `more-itertools/more-itertools` | [#1309](https://github.com/more-itertools/more-itertools/issues/1309) | Feasible | Exception | `AssertionError: assert [[]] == []` | Development |
+| `parse-250` | `r1chardj0n3s/parse` | [#250](https://github.com/r1chardj0n3s/parse/pull/250) | Feasible | Exception | `AssertionError: assert format(...) == ...` | Development |
+| `parse-258` | `r1chardj0n3s/parse` | [#258](https://github.com/r1chardj0n3s/parse/pull/258) | Feasible | Exception | `AssertionError: assert format(...) == ...` | Development |
 | `parse-267` | `r1chardj0n3s/parse` | [#267](https://github.com/r1chardj0n3s/parse/issues/267) | Feasible | Exception | `TypeError: 'NoneType' object is not subscriptable` | Development |
 | `parse-272` | `r1chardj0n3s/parse` | [#272](https://github.com/r1chardj0n3s/parse/issues/272) | Feasible | Exception | `TypeError: 'NoneType' object is not subscriptable` | Development |
-| `semver-460` | `python-semver/python-semver` | [#460](https://github.com/python-semver/python-semver/issues/460) | Feasible | Exception | `TypeError: expected string or bytes-like object` | Development |
-| `semver-480` | `python-semver/python-semver` | [#480](https://github.com/python-semver/python-semver/issues/480) | Feasible | Exception | `TypeError: '<' not supported between instances of 'Version' and 'tuple'` | Development |
-| `sqlparse-826` | `andialbrecht/sqlparse` | [#826](https://github.com/andialbrecht/sqlparse/issues/826) | Feasible | Exception | `AssertionError: assert len(stmts) == 4` | Development |
-| `tabulate-408` | `astanin/python-tabulate` | [#408](https://github.com/astanin/python-tabulate/issues/408) | Feasible | Exception | `AssertionError: asciidoc format output contains trailing whitespace` | Development |
-| `tabulate-410` | `astanin/python-tabulate` | [#410](https://github.com/astanin/python-tabulate/issues/410) | Feasible | Exception | `IndexError: list index out of range` | Development |
+| `parse-275` | `r1chardj0n3s/parse` | [#275](https://github.com/r1chardj0n3s/parse/pull/275) | Feasible | Exception | `AssertionError: assert pickle.loads(...)` | Development |
+| `semver-480` | `python-semver/python-semver` | [#480](https://github.com/python-semver/python-semver/issues/480) | Feasible | Exception | `TypeError: '<' not supported between instances of 'Version' and 'tuple'` | Held-Out |
+| `semver-501` | `python-semver/python-semver` | [#501](https://github.com/python-semver/python-semver/pull/501) | Feasible | Exception | `AssertionError: assert str(v) == '...'` | Held-Out |
+| `tabulate-410` | `astanin/python-tabulate` | [#410](https://github.com/astanin/python-tabulate/issues/410) | Feasible | Exception | `IndexError: list index out of range` | Held-Out |
 | `validators-dns` | `python-validators/validators` | [#410](https://github.com/python-validators/validators/issues/410) | Infeasible | Exception | `OSError: [Errno -3] Temporary failure in name resolution` (Network DNS required) | Development |
-| `voluptuous-451` | `alecthomas/voluptuous` | [#451](https://github.com/alecthomas/voluptuous/issues/451) | Feasible | Exception | `MultipleInvalid: length of value must be at least 0` | Held-Out |
-| `voluptuous-515` | `alecthomas/voluptuous` | [#515](https://github.com/alecthomas/voluptuous/issues/515) | Feasible | Exception | `TypeError: argument of type 'int' is not iterable` | Development |
+| `voluptuous-515` | `alecthomas/voluptuous` | [#515](https://github.com/alecthomas/voluptuous/pull/515) | Feasible | Exception | `MultipleInvalid: extra keys not allowed @ data['.remove']` | Development |
+| `voluptuous-539` | `alecthomas/voluptuous` | [#539](https://github.com/alecthomas/voluptuous/pull/539) | Feasible | Exception | `TypeError: conversion from NoneType to Decimal is not supported` | Development |
 
 ---
 
@@ -49,9 +49,12 @@ This dataset serves as the standardized, held-out evaluation benchmark for the I
 - **Total Candidates:** 18
 - **Development Partition:** 11 candidates (9 Feasible, 2 Infeasible)
 - **Held-Out Partition:** 7 candidates (5 Feasible, 2 Infeasible)
-- **Held-Out Hash:** `25c3861a6997d70601735c4effda410ea142eb970beeafb13179bdf30642de9a` (recorded in `bench/HELDOUT.sha256`)
+- **Held-Out Hash:** `405b7c5efde9602f29852cb106ce6c73be5b5f6abca60bf8debd7893e74bb872` (anchored in `bench/HELDOUT.sha256`)
 
 > [!IMPORTANT]
+> **Held-Out Re-Anchoring Disclosure (`502e292`):**
+> In commit `502e292`, six initial candidate issues (`sqlparse-826`, `tabulate-408`, `marshmallow-2901`, `more-itertools-1342`, `semver-460`, `voluptuous-451`) were found to contain unverified synthetic commit SHAs (returning HTTP 422 on GitHub API or failing baseline/symptom validation). They were removed to `bench/rejected.json` and replaced with 6 verified real GitHub PRs (`addict-102`, `parse-250`, `parse-258`, `parse-275`, `semver-501`, `voluptuous-539`). The dataset was re-partitioned via deterministic stratified splitting (`seed=42`) and the SHA-256 digest re-anchored. **Crucially, zero benchmark runs had taken place prior to commit `502e292`**; benchmarking only commenced at commit `a2c525c`.
+>
 > **Strict Held-Out Policy:** Issues assigned to the `held_out` partition are permanently locked. They MUST NEVER be inspected for prompt tuning, prompt engineering, agent debugging, or failure retrospectives. They exist purely for unpolluted blind benchmark evaluation.
 
 ---
@@ -78,10 +81,21 @@ The following candidate issues were evaluated and rejected per benchmark quality
 
 | Candidate | Repository | Issue | Reason for Rejection |
 | :--- | :--- | :--- | :--- |
+| `sqlparse-826` | `andialbrecht/sqlparse` | #826 | Unverified synthetic commit SHA (HTTP 422 No commit found on GitHub); excluded in favor of verified real PRs. |
+| `tabulate-408` | `astanin/python-tabulate` | #408 | Unverified synthetic commit SHA (HTTP 422 No commit found on GitHub); excluded in favor of verified real PRs. |
+| `marshmallow-2901` | `marshmallow-code/marshmallow` | #2901 | Non-existent synthetic commit SHA on GitHub; replaced with verified real PRs. |
+| `semver-460` | `python-semver/python-semver` | #460 | Non-existent synthetic commit SHA on GitHub; replaced with verified real PRs. |
+| `voluptuous-451` | `alecthomas/voluptuous` | #451 | Synthetic commit SHA on GitHub; replaced with verified real PRs. |
+| `more-itertools-1342` | `more-itertools/more-itertools` | #1342 | Final observed exception type at buggy commit did not match reported symptom contract. |
+| `tabulate-394` | `astanin/python-tabulate` | #394 | Baseline test suite execution timed out (>60s) during environment baseline capture. |
 | `tabulate-366` | `astanin/python-tabulate` | #366 | Baseline test execution exceeded the strict 60-second runtime constraint (timed out >3 minutes during legacy matrix tests). |
 | `dateutil-1583` | `dateutil/dateutil` | #1583 | Test dependency specification in `tox.ini` declared `freezegun` without lower bound, resolving to 2012 release `freezegun==0.0.2` which failed modern wheel build isolation. |
 | `dateutil-1053` | `dateutil/dateutil` | #1053 | Dependency resolution failed under date-bounded resolution due to unbuildable legacy test dependencies. |
 | `dirty-equals-109` | `samuelcolvin/dirty-equals` | #109 | Repository test suite requires optional extra `[pydantic]` not declared in core test dependencies, causing `collection_error` during baseline run and rendering baseline inconclusive. |
+| `marshmallow-3004` | `marshmallow-code/marshmallow` | #3004 | Environment build exceeded 300s timeout threshold during date-bounded dependency resolution. |
+| `more-itertools-1322` | `more-itertools/more-itertools` | #1322 | Ground-truth test unexpectedly passed at buggy commit; bug was not reliably reproduced without full generator instrumentation. |
+| `voluptuous-542` | `alecthomas/voluptuous` | #542 | Repository test suite exhibited inconclusive baseline on dataclass schema integration. |
+| `sqlparse-868` | `andialbrecht/sqlparse` | #868 | Build-time sphinx/requests documentation dependencies experienced transient SSL network timeouts on pythonhosted.org. |
 
 ---
 
