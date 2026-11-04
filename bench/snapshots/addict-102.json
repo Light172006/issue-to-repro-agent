@@ -1,15 +1,9 @@
 {
   "schema_version": 2,
   "repo": "mewwts/addict",
-  "number": 102,
+  "number": 101,
   "reporter": "MisterVladimir",
   "reporter_type": "User",
-  "body": "`Dict` subclasses' child nodes are now reflect the expected behavior that they're instances of that subclass instead of `Dict`s. Without this change, daughter nodes of subclass instances raise Attribute or other errors. \r\n\r\nAdded tests appropriate for these changes. 100% of tests passed.\r\n\r\nSee https://github.com/mewwts/addict/issues/101",
-  "comments": [
-    {
-      "user": "coveralls",
-      "author_association": "NONE",
-      "body": "\n[![Coverage Status](https://coveralls.io/builds/18611933/badge)](https://coveralls.io/builds/18611933)\n\nCoverage remained the same at 100.0% when pulling **[COMMIT_REMOVED] on MisterVladimir:master** into **[COMMIT_REMOVED] on mewwts:master**.\n"
-    }
-  ]
+  "body": "When I implement my own class that inherits from Dict, I get an error accessing the attributes of the nested items. That is, anything besides the top node does not contain my class' attributes. \r\n\r\nThe class:\r\n\r\n```python\r\nfrom six import string_types\r\nfrom collections import Iterable\r\nfrom addict import Dict\r\n\r\ndef isiterable(arg):\r\n    return isinstance(arg, Iterable) and not isinstance(arg, string_types)\r\n\r\nclass IndexedDict(Dict):\r\n    def _get_with_int(self, key, value):\r\n        return self[key]\r\n\r\n    def _get_with_slice(self, key, value):\r\n        return [self[k] for k in key]\r\n\r\n    def _set_with_int(self, key, value):\r\n        self[key] = value\r\n\r\n    def _set_with_slice(self, key, value):\r\n        for k, v in zip(key, value):\r\n            self[k] = v\r\n\r\n    def iloc(self, i, value=None):\r\n        keys = list(self.keys())[i]\r\n        method_dict = {(True, False): self._get_with_int,\r\n                       (True, True): self._get_with_slice,\r\n                       (False, False): self._set_with_int,\r\n                       (False, True): self._set_with_slice}\r\n        method = method_dict[(value is None, isiterable(keys) and isiterable(value))]\r\n        return method(keys, value)\r\n```\r\n\r\nThe errors come up when I do:\r\n\r\n```python\r\nd = IndexedDict()\r\nd['a']['b']['c'] = 5\r\ntype(d['a']['b']) # returns Dict\r\n# set value of 'c' key to 1\r\n# tries to call iloc() on Dict\r\nd['c'].iloc(0, 1)\r\n```",
+  "comments": []
 }
