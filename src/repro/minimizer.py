@@ -112,7 +112,9 @@ def input_candidates(source: str):
     for node in constants:
         value = node.value
         if isinstance(value, (str, bytes)) and value:
-            replacements = [value[:0], value[:len(value) // 2]]
+            # Try emptying the string/bytes literal (e.g. "" or b"") to check if the input is needed at all.
+            # Do NOT arbitrarily slice strings in half (value[:len//2]), which corrupts tokens (e.g. '03:00 pm' -> '03:0').
+            replacements = [value[:0]]
         elif isinstance(value, int) and not isinstance(value, bool) and value != 0:
             replacements = [0]
         else:

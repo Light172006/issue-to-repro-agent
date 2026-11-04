@@ -97,3 +97,56 @@ General fixes applied:
 | `parse-250` | dev | feasible | not_reproduced | NO | not_reproduced | NO | Agent searched and gave up without invalid test |
 | `parse-272` | dev | feasible | not_reproduced | NO | not_reproduced | NO | Agent searched and gave up without invalid test |
 
+
+
+---
+
+## Tuning Iteration 2 (Development Split)
+
+### Root Causes Addressed
+
+1. **Minimizer String Literal Over-Reduction (`parse-258`)**:
+   - *Problem*: In `src/repro/minimizer.py`, delta debugging on constant literals attempted halving strings via `value[:len(value)//2]`. Slicing `'03:00 pm'` in half produced `'03:0'`, which stripped the meridiem token `pm`. On the buggy tree, `'03:0'` and `'03:00 pm'` both parsed as `3:00`, so the candidate was accepted as minimal. However, on the fixed tree, `'03:00 pm'` parsed as `15:00` while `'03:0'` still parsed as `3:00`, causing the test to fail at the fix commit (`failed_at_fix`).
+   - *Fix*: Preserved string and bytes literals in `input_candidates`, testing only empty strings `value[:0]` to detect truly unused parameters without corrupting domain strings (formats, timestamps, regexes).
+   - *Outcome*: `'03:00 pm'` is preserved intact; `parse-258` passes on both buggy (exit 1) and fixed (exit 0) commits.
+
+2. **Matcher Assertion Generalization (`parse-272`)**:
+   - *Problem*: `_ASSERTION` in `src/repro/matcher.py` strictly matched `==`. Pytest tests asserting `assert result is None` printed `E assert <Result ...> is None`, which was rejected as unrecognized by `DeterministicSymptomChecker`, triggering fruitless escalation and timeout.
+   - *Fix*: Expanded `_ASSERTION` regex to match `(?:AssertionError:\s+)?assert\s+(.+?)\s*(?:==|is|!=|is\s+not|in|not\s+in)\s+(.+?)`. Added bidirectional comparison checking: `(left, right)` matches `(actual, expected)` OR `(expected, actual)`.
+   - *Outcome*: `parse-272` reproduces in 21.8s ($0.017 cost) and verifies cleanly in Docker.
+
+3. **Matcher Semantic & Representation Canonicalization (`more-itertools-1309` & `parse-258`)**:
+   - *Problem*: When issue reporters describe symptoms, they often write `15:00` for `datetime.time(15, 0)` or `"the bucket should be empty"` for `[]`.
+   - *Fix*:
+     - Added `_normalize_repr` canonicalizing `datetime.time(H, M)` to `HH:MM` and `HH:MM:SS`.
+     - Added semantic empty-collection handling: `[]`, `{}`, `""` match descriptive expectations like `"bucket should be empty"`.
+     - Handled explanatory assertion text in `_value_matches` safely.
+   - *Outcome*: `more-itertools-1309` reproduces in 34.0s ($0.038 cost) and verifies cleanly in Docker.
+
+---
+
+### Tuning Iteration 2 Summary Metrics (Development Split)
+
+| Arm | Split | Feasible Repro Rate (Recall) | Infeasible Refusal Quality | False Positive Claims Rate | Overall Correctness | Total Cost ($) | Avg Duration (s) |
+|---|---|---|---|---|---|---|---|
+| **Full System** | development | **55.6%** (5/9) | **100.0%** (2/2) | **0.0%** (0/5) | **63.6%** (7/11) | $0.54 | 33.7s |
+| **Baseline B** | development | **33.3%** (3/9) | **100.0%** (2/2) | **0.0%** (0/3) | **45.5%** (5/11) | $0.79 | 54.7s |
+| **Baseline A** | development | **33.3%** (3/9) | **0.0%** (0/2) | **45.5%** (5/11) | **27.3%** (3/11) | $0.03 | 7.6s |
+
+---
+
+### Tuning Iteration 2 Detailed Issue-by-Issue Results (Development Split)
+
+| Candidate ID | Category | Expected Outcome | Full System | Baseline B | Baseline A | Failure Category / Note |
+|---|---|---|---|---|---|---|
+| `colorama-89` | infeasible | Refusal (OS API) | **correct_refusal** | **correct_refusal** | incorrect (false pos) | Full & B refuse cleanly; A hallucinates test |
+| `validators-dns` | infeasible | Refusal (Network) | **correct_refusal** | **correct_refusal** | incorrect (false pos) | Full & B refuse cleanly; A hallucinates test |
+| `parse-258` | feasible | Reproduction | **correct_repro** | **correct_repro** | incorrect (symptom mismatch) | Fixed string truncation in minimizer; 100% verified |
+| `parse-267` | feasible | Reproduction | **correct_repro** | **correct_repro** | **correct_repro** | Exact symptom reproduction across all arms |
+| `parse-272` | feasible | Reproduction | **correct_repro** | incorrect (not repro) | **correct_repro** | Fixed `is None` assertion matching in matcher |
+| `more-itertools-1309` | feasible | Reproduction | **correct_repro** | incorrect (not repro) | **correct_repro** | Fixed empty collection semantic matching |
+| `voluptuous-539` | feasible | Reproduction | **correct_repro** | **correct_repro** | incorrect (symptom mismatch) | Clean reproduction verified at buggy & fix |
+| `parse-250` | feasible | Reproduction | not_reproduced | not_reproduced | incorrect (failed at fix) | Escaped signed decimal parsing difficulty |
+| `parse-275` | feasible | Reproduction | needs_info | needs_info | incorrect (failed at fix) | Conservative triage clarification on missing code |
+| `marshmallow-3082` | feasible | Reproduction | needs_info | needs_info | incorrect (symptom mismatch) | Conservative triage clarification on missing code |
+| `voluptuous-515` | feasible | Reproduction | needs_info | needs_info | incorrect (symptom mismatch) | Conservative triage clarification on missing code |

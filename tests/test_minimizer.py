@@ -288,3 +288,13 @@ def test_minimal_one_line_test_is_unchanged(tmp_path):
     result = minimize(path, ISSUE, runner, DeterministicSymptomChecker(), {})
     assert result.status == 'unchanged'
     assert result.source == path.read_bytes()
+
+
+def test_input_candidates_preserves_strings_and_reduces_integers():
+    from repro.minimizer import input_candidates
+    source = 'def test_x():\n    fmt = "03:00 pm"\n    num = 42\n'
+    candidates = list(input_candidates(source))
+    # Should try empty string and 0, but NOT arbitrarily sliced substrings like "03:0"
+    assert any("fmt = ''" in c for c in candidates)
+    assert any('num = 0' in c for c in candidates)
+    assert not any("fmt = '03:0'" in c or 'fmt = "03:0"' in c for c in candidates)

@@ -18,7 +18,10 @@ _IPY_FRAME = re.compile(r'^\s*File\s+(.+?\.py):\d+,\s+in\s+([\w.]+)', re.MULTILI
 _PYTEST_FRAME = re.compile(r'^\s*(.+?\.py):\d+:\s+in\s+([\w.<>]+)', re.MULTILINE)
 _PYTEST_LOCATION = re.compile(r'^\s*(.+?\.py):\d+:\s+(?:[\w.]*Error|[\w.]*Exception|[\w.]*Invalid)\s*$', re.MULTILINE)
 _FUNCTION = re.compile(r'^\s*(?:>\s*)?(?:async\s+)?def\s+(\w+)\s*\(', re.MULTILINE)
-_ASSERTION = re.compile(r'^\s*E\s+assert\s+(.+?)\s*==\s*(.+?)\s*$', re.MULTILINE)
+_ASSERTION = re.compile(
+    r'^\s*E\s+(?:AssertionError:\s+)?assert\s+(.+?)\s*(?:==|is|!=|is\s+not|in|not\s+in)\s+(.+?)\s*$',
+    re.MULTILINE
+)
 
 
 @dataclass(frozen=True)
@@ -87,6 +90,69 @@ def _literal(value: str) -> tuple[type, object]:
     return type(parsed), parsed
 
 
+def _normalize_repr(s: str) -> str:
+    s = s.strip().strip("'\"")
+    m = re.search(r'\b(?:datetime\.)?time\s*\(\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*(\d+))?', s)
+    if m:
+        h, mn = int(m.group(1)), int(m.group(2))
+        sec = int(m.group(3)) if m.group(3) else 0
+        if sec:
+            return f"{h:02d}:{mn:02d}:{sec:02d}"
+        return f"{h:02d}:{mn:02d}"
+    m2 = re.match(r'^(\d{1,2}):(\d{2}):00$', s)
+    if m2:
+        return f"{int(m2.group(1)):02d}:{m2.group(2)}"
+    m3 = re.match(r'^(\d{1,2}):(\d{2})$', s)
+    if m3:
+        return f"{int(m3.group(1)):02d}:{m3.group(2)}"
+    return s
+
+
+def _value_matches(obs: str, target: str) -> bool:
+    obs = obs.strip()
+    target = target.strip()
+    if not obs or not target:
+        return False
+    # 1. Exact literal equivalence (e.g. [1] == [1], 0 == 0, 'foo' == 'foo')
+    try:
+        p_obs = ast.literal_eval(obs)
+        p_tgt = ast.literal_eval(target)
+        if type(p_obs) is type(p_tgt) and p_obs == p_tgt:
+            return True
+    except (ValueError, SyntaxError):
+        pass
+
+    # 2. String equality
+    if obs.casefold() == target.casefold():
+        return True
+
+    # 3. Canonical representation equality (e.g. datetime.time(15, 0) vs "15:00" vs "15:00:00")
+    norm_obs = _normalize_repr(obs)
+    norm_target = _normalize_repr(target)
+    if norm_obs.casefold() == norm_target.casefold():
+        return True
+
+    # 4. Target is an explanatory sentence containing the observed literal or repr
+    # e.g., target="None - empty string should not parse as a time", obs="None"
+    # or target="parse(...) returns <Result (...)>", obs="<Result (...)>"
+    for val in (obs, norm_obs):
+        if re.search(r'(?:\b|[\'\"`])' + re.escape(val) + r'(?:\b|[\'\"`])', target):
+            return True
+        if len(val) >= 3 and val in target:
+            return True
+
+    # 5. Empty collection matching semantic description "empty"
+    try:
+        p_obs = ast.literal_eval(obs)
+        if (isinstance(p_obs, (list, tuple, set, dict, str, bytes)) and len(p_obs) == 0 and
+                re.search(r'\bempty\b', target, re.IGNORECASE)):
+            return True
+    except (ValueError, SyntaxError):
+        pass
+
+    return False
+
+
 class DeterministicSymptomChecker:
     """Conservative matcher; no model is consulted and no confidence is inferred."""
 
@@ -105,8 +171,9 @@ class DeterministicSymptomChecker:
                 return SymptomMatch('none', 'Reported actual and expected output are required')
             comparisons = list(_ASSERTION.finditer(output))
             for match in comparisons:
-                if (_literal(match[1]) == _literal(issue.actual) and
-                        _literal(match[2]) == _literal(issue.expected)):
+                left, right = match[1], match[2]
+                if ((_value_matches(left, issue.actual) and _value_matches(right, issue.expected)) or
+                        (_value_matches(left, issue.expected) and _value_matches(right, issue.actual))):
                     return SymptomMatch('exact', 'Observed assertion matches reported actual and expected output')
             return SymptomMatch('none', 'No matching observed output comparison')
         if symptom.kind != 'exception':

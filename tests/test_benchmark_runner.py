@@ -152,7 +152,7 @@ def test_score_infeasible_false_attempt(tmp_path: Path):
     assert scored["failure_category"] == "false_positive_attempt"
 
 
-def test_score_feasible_offline_mock(tmp_path: Path):
+def test_score_feasible_offline_unevaluated(tmp_path: Path):
     candidate = {
         "id": "parse-272",
         "category": "feasible",
@@ -170,10 +170,11 @@ def test_score_feasible_offline_mock(tmp_path: Path):
     (run_dir / "result.json").write_text(json.dumps(res_data), encoding="utf-8")
     (run_dir / "test_repro.py").write_text("def test_parse(): assert 1 == 2", encoding="utf-8")
 
-    # In offline mode (dc=None, builder=None), it passes as valid mock repro
+    # In offline mode (dc=None, builder=None), it does not fabricate passes
     scored = evaluate_candidate_run(candidate, run_dir, None, None)
-    assert scored["is_correct"] is True
-    assert scored["verdict"] == "correct_repro"
+    assert scored["is_correct"] is False
+    assert scored["verdict"] == "unevaluated"
+    assert scored["failure_category"] == "offline_unevaluated"
 
 
 def test_calculate_metrics_comprehensive():

@@ -30,3 +30,4 @@ def test_all_snapshots_clean_of_curator_content():
         body = data.get('body') or ''
         for suspect in ('curator note', 'ground truth', 'benchmark solution', 'fix_ref', 'buggy_ref'):
             assert suspect not in body.lower(), f"{snap_path.name} body contains curator marker: {suspect}"
+

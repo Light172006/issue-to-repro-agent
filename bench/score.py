@@ -179,20 +179,20 @@ def evaluate_candidate_run(
 
     test_code = test_file.read_text(encoding='utf-8')
     if dc is None or builder is None:
-        # Offline mock evaluation
+        # Offline mode cannot execute Docker containers; do not fabricate verdicts
         return {
             'candidate_id': cid,
             'split': candidate.get('split', 'development'),
             'category': cat,
             'status': status,
-            'is_correct': True,
-            'verdict': 'correct_repro',
-            'failure_category': None,
+            'is_correct': False,
+            'verdict': 'unevaluated',
+            'failure_category': 'offline_unevaluated',
             'cost_usd': cost_usd,
             'duration': duration,
-            'buggy_exit': 1,
-            'fix_exit': 0,
-            'symptom_match': 'exact'
+            'buggy_exit': None,
+            'fix_exit': None,
+            'symptom_match': None
         }
 
     # Run in Sandbox: Buggy environment
