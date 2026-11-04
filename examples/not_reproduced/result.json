@@ -1,0 +1,31 @@
+{
+  "outcome": "gave_up",
+  "repro_path": null,
+  "verdict": null,
+  "steps": 16,
+  "cost_usd": "0.2770155",
+  "duration": 94.9369999999999,
+  "stalled": true,
+  "reason": "escalation_step_limit",
+  "escalation": {
+    "escalated": true,
+    "trigger": "repeated_error",
+    "step": 6,
+    "reason": "repeated_error",
+    "wonder_steps": 10,
+    "wonder_cost": "0.256736",
+    "spark_cost": "0.0202795",
+    "solved_after_escalation": false,
+    "failed_reason": null
+  },
+  "status": "not_reproduced",
+  "confidence": null,
+  "checks": {
+    "symptom_match": null,
+    "repeated_runs": null,
+    "fixed_version": null
+  },
+  "verification": "not_run",
+  "status_detail": "escalation_step_limit",
+  "test_file": null
+}

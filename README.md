@@ -237,6 +237,7 @@ The dataset is partitioned into:
 
 See `examples/` for saved outputs representing all execution states:
 - `examples/reproduced/`: Successfully reproduced, verified, and minimized bug report.
+- `examples/not_reproduced/`: Authentic held-out run (`tabulate-410`) where the agent explored, escalated, and honestly concluded no reproduction within exploration caps.
 - `examples/not_feasible/`: Hardware/OS-bound issue refused at triage with explanatory rationale.
 - `examples/needs_info/`: Vague report refused with targeted follow-up questions for the reporter.
 
