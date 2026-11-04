@@ -148,54 +148,88 @@ Inspect the generated artifacts in `runs/<run-id>/`:
 
 ---
 
-## Benchmark Evaluation
+## Benchmark Evaluation & Results
 
-We evaluate the system against an 18-issue ground-truth benchmark across 11 pure-Python utility libraries (14 feasible, 4 infeasible across `addict`, `colorama`, `gpustat`, `marshmallow`, `more-itertools`, `parse`, `semver`, `tabulate`, `validators`, `voluptuous`):
-- **Development Split**: 11 candidates (9 feasible, 2 infeasible).
-- **Held-Out Split**: 7 candidates (5 feasible, 2 infeasible), anchored by cryptographic digest `bench/HELDOUT.sha256`.
+We evaluate against an 18-issue ground-truth benchmark across 10 pure-Python libraries (`addict`, `colorama`, `gpustat`, `marshmallow`, `more-itertools`, `parse`, `semver`, `tabulate`, `validators`, `voluptuous`), comprising 14 feasible and 4 infeasible issues.
 
-### Benchmark Arms
-- **Full System**: Complete autonomous pipeline (triage, Docker environment build, Spark 1.3 agent loop, stall detection, Wonder 1.0 escalation, independent verifier, AST minimizer).
-- **Baseline B**: Agent tool loop in Docker sandbox without independent verifier or AST minimizer.
-- **Baseline A**: Single zero-tool model call to generate `test_repro.py` directly from the issue snapshot.
+The dataset is partitioned into:
+- **Held-Out Split (n=7)**: 5 feasible, 2 infeasible (`colorama-110` Win32 API, `gpustat-cuda` NVIDIA NVML). Cryptographically locked by `bench/HELDOUT.sha256` (`405b7c5efde9602f29852cb106ce6c73be5b5f6abca60bf8debd7893e74bb872`). Evaluated once with zero tuning or cherry-picking.
+- **Development Split (n=11, used for tuning)**: 9 feasible, 2 infeasible (`colorama-89` Win32 API, `validators-dns` live network).
 
-### Run Benchmark
-```powershell
-# Run Baseline A on development split
-python bench/run.py --arm baseline_a --split development --workers 3
-
-# Run Full System on development split
-python bench/run.py --arm full --split development --workers 3
-
-# Run Held-Out Evaluation (Pre-authorized single pass)
-python bench/run.py --arm all --split held_out --workers 3
-
-# Score benchmark runs against Docker ground-truth and generate results.md
-python bench/score.py --output results.md
-```
+### Evaluated Benchmark Arms
+- **Full System**: End-to-end pipeline (deterministic triage, Docker environment builder, Meta Muse Spark 1.3 agent loop, semantic stall detector with Muse Wonder 1.0 escalation, 5-run Docker verifier, AST minimizer).
+- **Baseline B**: Identical agent loop in Docker sandbox without the independent verifier or AST minimizer.
+- **Baseline A**: Single-prompt zero-shot generation of `test_repro.py` directly from the issue snapshot without tools, sandbox feedback, or triage.
 
 ---
 
-## Results Summary
+### Primary Results: Held-Out Split (Unseen Test Set, n=7)
 
-| Metric | Full System (Dev) | Baseline A (Dev) | Full System (Held-Out) | Baseline A (Held-Out) |
-|---|---|---|---|---|
-| **Total Candidates** | 11 | 11 | 7 | 7 |
-| **Correct Decisions** | *See results.md* | *See results.md* | *See results.md* | *See results.md* |
-| **Infeasible Refusals** | 2 / 2 (100%) | 0 / 2 (0%) | 2 / 2 (100%) | 0 / 2 (0%) |
-| **Precision** | High | Low (Hallucinations) | High | Low |
-| **Average Cost / Run** | ~$0.04 - $0.09 | ~$0.002 | ~$0.04 - $0.09 | ~$0.002 |
+*All numbers generated directly from Docker ground-truth execution via `bench/score.py` into `results.md`.*
 
-*Full issue-by-issue audit and metrics are available in [results.md](results.md).*
+| Arm | Feasible Repro Rate | Fail-to-Pass (Strict) | Symptom Match | Claims (Tot / Corr / Wr) | Wrong-Claim Rate | Infeasible Refusal | Overall Correctness | Total Cost ($) | Avg Time (s) |
+|---|---|---|---|---|---|---|---|---|---|
+| **Full System** | **0.0%** (0/5) | 0/5 | 1/5 | 1 (0 / 1) | 100.0% (1/1) | **100.0%** (2/2) | **28.6%** (2/7) | $0.70 | 46.9s |
+| **Baseline B** | **40.0%** (2/5) | 2/5 | 2/5 | 3 (2 / 1) | 33.3% (1/3) | **100.0%** (2/2) | **57.1%** (4/7) | $0.86 | 53.6s |
+| **Baseline A** | **80.0%** (4/5) | 5/5 | 4/5 | 7 (4 / 3) | 42.9% (3/7) | **0.0%** (0/2) | **57.1%** (4/7) | $0.03 | 9.5s |
+
+### Secondary Results: Development Split (Used for Tuning, n=11)
+
+| Arm | Feasible Repro Rate | Fail-to-Pass (Strict) | Symptom Match | Claims (Tot / Corr / Wr) | Wrong-Claim Rate | Infeasible Refusal | Overall Correctness | Total Cost ($) | Avg Time (s) |
+|---|---|---|---|---|---|---|---|---|---|
+| **Full System** | **55.6%** (5/9) | 5/9 | 5/9 | 5 (5 / 0) | **0.0%** (0/5) | **100.0%** (2/2) | **63.6%** (7/11) | $0.54 | 33.7s |
+| **Baseline B** | **33.3%** (3/9) | 3/9 | 3/9 | 3 (3 / 0) | **0.0%** (0/3) | **100.0%** (2/2) | **45.5%** (5/11) | $0.79 | 54.7s |
+| **Baseline A** | **22.2%** (2/9) | 5/9 | 4/9 | 11 (2 / 9) | 81.8% (9/11) | **0.0%** (0/2) | **18.2%** (2/11) | $0.03 | 7.6s |
 
 ---
 
-## Honest Limitations
+### Honest Benchmark Analysis & Positioning
 
-1. **Non-Linux & Specialized Hardware**: The Docker sandbox runs on Linux; issues specific to Windows APIs, macOS GUI, or physical GPUs are intentionally refused by design (`status: not_feasible`).
-2. **Network Isolation**: Tests requiring live internet DNS queries or external REST APIs cannot be reproduced under the mandatory `--network none` boundary.
-3. **Escalation Dynamics**: Escalation from Muse Spark 1.3 to Muse Wonder 1.0 resolves stubborn semantic stalls, but bounded per-run cost limits ($1.00) halt exploration if an issue involves circular imports or deep environment dependency incompatibilities.
-4. **Vague Bug Reports**: The system will not hallucinate missing reproduction steps for incomplete reports; it emits targeted clarifying questions (`status: needs_info`).
+1. **Trading Recall for Trust**:
+   - The Full System does not claim to beat raw zero-shot LLM generation on finding reproduction candidates. On the held-out split, **Baseline A had the highest recall** (4/5 feasible, 80.0% repro rate, 5/5 strict fail-to-pass), but it achieved this by guessing aggressively: Baseline A claimed a reproduction on **every single issue**, resulting in 3 wrong claims out of 7 on held-out (42.9% wrong-claim rate), 9 wrong claims out of 11 on dev (81.8% wrong-claim rate), and hallucinating fake tests for all 4 infeasible issues (0/2 refusals on both splits).
+   - In contrast, the Full System and Baseline B **refused 100.0% of infeasible issues** (4/4 total across dev and held-out: `colorama-89`, `colorama-110`, `validators-dns`, `gpustat-cuda`) at zero model cost during triage.
+2. **Held-Out Conservatism**:
+   - On the held-out split, the Full System was **too conservative**: it scored 0/5 feasible reproductions. It returned `not_reproduced` on 4 issues (`addict-102`, `addict-28`, `semver-501`, `tabulate-410`) because it refused to declare victory without an exact verified symptom match across multiple container runs.
+   - On `semver-480`, the Full System successfully reproduced the bug and verified it across 5/5 clean container runs at the buggy commit. However, the AST minimizer over-reduced the assertion, making it over-constrained such that it also failed on the fix tree (`failed_at_fix`). In contrast, Baseline B's unminimized candidate passed on the fix tree.
+3. **Summary Verdict**:
+   - If a maintainer wants raw candidate ideas and is willing to manually filter 40–80% false positives, single-prompt LLM generation (Baseline A) is cheap.
+   - If a maintainer needs automated triage they can trust without chasing phantom reproductions or platform-infeasible issues, the guarded agent loop provides verified execution and zero wrong claims on development (though tuning for held-out generalization remains an active research direction).
+
+---
+
+### Benchmark Audit & Disclosures
+
+1. **Held-Out Hash Integrity**:
+   - `bench/HELDOUT.sha256` was verified before running and re-verified immediately after scoring. SHA-256: `405b7c5efde9602f29852cb106ce6c73be5b5f6abca60bf8debd7893e74bb872`.
+2. **Held-Out Re-Anchoring Disclosure**:
+   - In commit `502e292`, `dataset.json` and `held_out.json` were rebuilt and `bench/HELDOUT.sha256` was updated after rejecting 6 invalid issues (`marshmallow-2901`, `more-itertools-1342`, `semver-460`, `sqlparse-826`, `tabulate-408`, `voluptuous-451`) that lacked verifiable ground-truth fix commits or valid git tags. No benchmark results existed prior to this re-anchoring.
+3. **`addict-102` Snapshot Sanitization**:
+   - Issue `addict-102` originated from a pull request URL (`/pull/102`) that resolved issue #101. The snapshot `bench/snapshots/addict-102.json` originally included the PR description and test notes. Prior to the held-out benchmark run, it was sanitized to contain exclusively the original Issue #101 bug report text from reporter `MisterVladimir` (subclass attribute loss and error), stripping PR solution text and Coveralls comments. Neither `bench/dataset.json` nor `bench/held_out.json` was altered.
+4. **`tabulate-410` Infrastructure Flake**:
+   - During the single held-out run of `full`, `tabulate-410` encountered a transient Windows socket collision (`[WinError 10013] An attempt was made to access a socket in a way forbidden by its access permissions`) during Docker port binding. The crash log was preserved in `runs/infrastructure_failures/full_tabulate-410_result.json`. Per benchmark ground rules, only that single issue was rerun once, completing cleanly with `status: not_reproduced` ($0.277 USD, 94.9s).
+5. **Score Generation**:
+   - `results.md` is generated exclusively via `bench/score.py` running in live Docker sandboxes. It is never manually edited.
+
+---
+
+## Known Limitations
+
+1. **Minimizer Over-Reduction**:
+   - The AST delta-debugging minimizer can over-reduce test logic. While `parse-258` was fixed by preserving top-level assertions, `semver-480` on held-out suffered a recurrence: the agent produced a valid 5/5 reproduction, but the minimizer's generated assertion failed at the fix commit (`failed_at_fix`). The benchmark results reflect this limitation honestly without post-hoc patching.
+2. **Platform & Hardware Boundaries**:
+   - Sandbox environments run Linux containers (`python:3.11`). Bugs requiring native Win32 console APIs (`colorama`), macOS Cocoa, or physical NVIDIA GPU hardware/NVML (`gpustat`) cannot be reproduced and are refused by design.
+3. **Network Isolation**:
+   - Docker containers enforce `--network none`. Issues requiring live internet DNS lookups (`validators`) or external endpoints are intentionally refused.
+4. **Vague Bug Reports**:
+   - The agent requires clear reproduction steps or an identifiable exception symptom; ambiguous issues are returned with clarifying questions (`status: needs_info`).
+
+---
+
+## Credits & Model Roles
+
+- **Meta Muse Spark 1.3 Contributor**: Default high-throughput, low-latency model used for issue parsing, initial reproduction script drafting, and routine tool loop exploration.
+- **Meta Muse Wonder 1.0 Frontier**: Escalation model invoked automatically when semantic stalls, syntax errors, or loop cycles are detected by the runner.
+- **Framework & Libraries**: Built with Python 3.11, `docker-py`, `pytest`, `httpx`, and `tree-sitter`.
 
 ---
 
